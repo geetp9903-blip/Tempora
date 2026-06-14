@@ -1,26 +1,144 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #06060e;
+  --color-surface: #0e0e1a;
+  --color-raised: #161627;
+  --color-glass: rgba(124, 58, 237, 0.06);
+  
+  --color-border-default: #1e1e3a;
+  --color-border-glow: rgba(124, 58, 237, 0.3);
+  
+  --color-primary: #f0f0f8;
+  --color-secondary: #7a7a9e;
+  
+  --color-brand-primary: #7c3aed;
+  --color-brand-light: #a78bfa;
+  --color-brand-dark: #5b21b6;
+  --color-brand-glow: rgba(124, 58, 237, 0.4);
+  
+  --color-accent-cyan: #06b6d4;
+  --color-accent-light: #22d3ee;
+  
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  
+  --color-priority-high: #f43f5e;
+  --color-priority-medium: #f59e0b;
+  --color-priority-low: #06b6d4;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  background-color: var(--color-background);
+  color: var(--color-primary);
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+  100% { transform: translateY(0px); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 20px var(--color-brand-glow); }
+  50% { opacity: .5; box-shadow: 0 0 40px var(--color-brand-glow); }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-primary);
+  background-image: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08) 0%, transparent 70%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility classes */
+@utility glass-card {
+  background: var(--color-glass);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: 1rem;
+  box-shadow: 
+    0 0 30px rgba(124, 58, 237, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: var(--color-border-glow);
+    box-shadow: 
+      0 0 40px rgba(124, 58, 237, 0.15),
+      0 12px 40px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px) perspective(1000px) rotateX(2deg);
+  }
+}
+
+/* FullCalendar Overrides for Dark Theme */
+.calendar-wrapper .fc {
+  --fc-border-color: rgba(255, 255, 255, 0.1);
+  --fc-button-bg-color: rgba(255, 255, 255, 0.05);
+  --fc-button-border-color: rgba(255, 255, 255, 0.1);
+  --fc-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+  --fc-button-hover-border-color: rgba(255, 255, 255, 0.2);
+  --fc-button-active-bg-color: rgba(124, 58, 237, 0.2);
+  --fc-button-active-border-color: rgba(124, 58, 237, 0.5);
+  --fc-event-bg-color: #7c3aed;
+  --fc-event-border-color: transparent;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(255, 255, 255, 0.02);
+  --fc-today-bg-color: rgba(124, 58, 237, 0.05);
+  font-family: var(--font-inter), sans-serif;
+}
+
+.calendar-wrapper .fc-theme-standard th, 
+.calendar-wrapper .fc-theme-standard td, 
+.calendar-wrapper .fc-theme-standard .fc-scrollgrid {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-wrapper .fc-col-header-cell-cushion,
+.calendar-wrapper .fc-daygrid-day-number {
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px;
+}
+
+.calendar-wrapper .fc-toolbar-title {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem !important;
+}
+
+.calendar-wrapper .fc-event {
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+.calendar-wrapper .fc-event:hover {
+  transform: scale(1.02);
+  cursor: pointer;
+}
+
+.calendar-wrapper .fc-button {
+  text-transform: capitalize;
+  font-weight: 500;
+  padding: 0.4rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.calendar-wrapper .fc-button-primary:not(:disabled).fc-button-active, 
+.calendar-wrapper .fc-button-primary:not(:disabled):active {
+  background-color: rgba(124, 58, 237, 0.2) !important;
+  color: #a78bfa !important;
+  border-color: rgba(124, 58, 237, 0.5) !important;
 }
