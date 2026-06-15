@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCategories, Category } from "@/hooks/useCategories";
+import { COLOR_PRESETS, PresetKey } from "@/lib/colorPresets";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -11,7 +12,15 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export function CategoryPanel() {
-  const { categories, isLoading, deleteCategory, isDeleting } = useCategories();
+  const { 
+    categories, 
+    isLoading, 
+    deleteCategory, 
+    isDeleting, 
+    activePreset, 
+    changePreset, 
+    isChangingPreset 
+  } = useCategories();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>(undefined);
@@ -40,15 +49,37 @@ export function CategoryPanel() {
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <FolderOpen className="w-5 h-5 text-tempora-purple" />
-          Categories
-        </h2>
-        <Button size="sm" onClick={handleOpenCreate} className="gap-1">
-          <Plus className="w-4 h-4" />
-          New
-        </Button>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-tempora-purple" />
+            Categories
+          </h2>
+          <Button size="sm" onClick={handleOpenCreate} className="gap-1">
+            <Plus className="w-4 h-4" />
+            New
+          </Button>
+        </div>
+
+        {/* Preset Selector */}
+        <div className="flex flex-col gap-1.5 border-t border-white/10 pt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Color Palette Preset</span>
+            {isChangingPreset && <span className="text-[10px] text-tempora-cyan animate-pulse">Syncing...</span>}
+          </div>
+          <select
+            value={activePreset}
+            disabled={isChangingPreset}
+            onChange={(e) => changePreset({ newPreset: e.target.value as PresetKey, oldPreset: activePreset })}
+            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-tempora-purple/50 focus:border-tempora-purple transition-all duration-200 cursor-pointer disabled:opacity-50"
+          >
+            {Object.entries(COLOR_PRESETS).map(([key, preset]) => (
+              <option key={key} value={key} className="bg-[#161627] text-white">
+                {preset.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

@@ -68,6 +68,7 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 

@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { CategoryAutocomplete } from "@/components/ui/CategoryAutocomplete";
 import { useTasks, Task, TaskPriority, TaskStatus } from "@/hooks/useTasks";
 import { useCategories } from "@/hooks/useCategories";
+import { COLOR_PRESETS } from "@/lib/colorPresets";
 import { toast } from "sonner";
 
 interface TaskFormProps {
@@ -25,7 +26,7 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
   const [priority, setPriority] = useState<TaskPriority>(initialData?.priority || "medium");
   const [status, setStatus] = useState<TaskStatus>(initialData?.status || "not_started");
   
-  const { categories, createCategory } = useCategories();
+  const { categories, createCategory, activePreset } = useCategories();
   const { createTask, updateTask, isCreating, isUpdating } = useTasks();
   
   const isEditing = !!initialData;
@@ -43,9 +44,9 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
       let finalCategoryId = categoryId || null;
 
       if (newCategoryName) {
-        const PRESET_COLORS = ["#7c3aed", "#2dd4bf", "#f43f5e", "#eab308", "#3b82f6", "#10b981", "#ec4899", "#f97316"];
-        const randomColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
-        const newCat = await createCategory({ name: newCategoryName, color: randomColor });
+        const presetColors = COLOR_PRESETS[activePreset]?.colors || ["#7c3aed", "#2dd4bf", "#f43f5e", "#eab308", "#3b82f6", "#10b981", "#ec4899", "#f97316"];
+        const autoColor = presetColors[categories.length % presetColors.length] || presetColors[0];
+        const newCat = await createCategory({ name: newCategoryName, color: autoColor });
         finalCategoryId = newCat.id;
       }
 

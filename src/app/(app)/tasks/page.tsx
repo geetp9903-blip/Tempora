@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { TaskForm } from "@/components/tasks/TaskForm";
+import { CategoryPanel } from "@/components/categories/CategoryPanel";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { Plus } from "lucide-react";
 
@@ -31,26 +32,32 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Tasks</h2>
-          <p className="text-white/60 mt-1">Manage your to-dos and priorities.</p>
+    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start h-full pb-8">
+      <div className="xl:col-span-3 flex flex-col gap-6 h-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Tasks</h2>
+            <p className="text-white/60 mt-1">Manage your to-dos and priorities.</p>
+          </div>
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="w-4 h-4" />
+            New Task
+          </Button>
         </div>
-        <Button onClick={handleOpenCreate} className="gap-2">
-          <Plus className="w-4 h-4" />
-          New Task
-        </Button>
+
+        <TaskFilters filters={filters} onFilterChange={handleFilterChange} />
+        
+        <div className="flex-1">
+          <TaskTable 
+            tasks={tasks} 
+            isLoading={isLoading} 
+            onEditTask={handleOpenEdit} 
+          />
+        </div>
       </div>
 
-      <TaskFilters filters={filters} onFilterChange={handleFilterChange} />
-      
-      <div className="flex-1">
-        <TaskTable 
-          tasks={tasks} 
-          isLoading={isLoading} 
-          onEditTask={handleOpenEdit} 
-        />
+      <div className="xl:col-span-1 xl:sticky xl:top-6">
+        <CategoryPanel />
       </div>
 
       <Modal

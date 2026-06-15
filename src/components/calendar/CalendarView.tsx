@@ -37,9 +37,9 @@ export function CalendarView() {
   };
 
   // Handle clicking on a date cell to create a new event
-  const handleDateClick = (arg: { dateStr: string }) => {
+  const handleDateClick = (arg: { date: Date; dateStr: string }) => {
     setEditingEvent(undefined);
-    setSelectedDateStr(arg.dateStr);
+    setSelectedDateStr(arg.date.toISOString());
     setIsFormOpen(true);
   };
 
