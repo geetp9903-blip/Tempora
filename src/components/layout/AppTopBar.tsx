@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
+import { useSidebar } from "@/providers/SidebarProvider";
 import { Menu, Search, Bell } from "lucide-react";
 
 const ROUTE_NAMES: Record<string, string> = {
@@ -15,6 +16,7 @@ const ROUTE_NAMES: Record<string, string> = {
 export function AppTopBar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { toggle } = useSidebar();
 
   // Get the base route name
   const getPageTitle = () => {
@@ -25,8 +27,11 @@ export function AppTopBar() {
   return (
     <header className="h-16 border-b border-white/5 bg-tempora-black/50 backdrop-blur-xl flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
       <div className="flex items-center gap-4">
-        {/* Mobile menu toggle placeholder */}
-        <button className="md:hidden p-2 text-white/60 hover:text-white transition-colors">
+        {/* Mobile menu toggle */}
+        <button 
+          onClick={toggle}
+          className="md:hidden p-2 text-white/60 hover:text-white transition-colors"
+        >
           <Menu className="w-6 h-6" />
         </button>
         

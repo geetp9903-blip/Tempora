@@ -57,7 +57,22 @@ export default function TasksPage() {
       </div>
 
       <div className="xl:col-span-1 xl:sticky xl:top-6">
-        <CategoryPanel />
+        <div className="md:hidden mb-4">
+          <Button 
+            variant="secondary" 
+            className="w-full justify-between"
+            onClick={() => {
+              const el = document.getElementById('mobile-category-panel');
+              if (el) el.classList.toggle('hidden');
+            }}
+          >
+            <span>Manage Categories</span>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+        <div id="mobile-category-panel" className="hidden md:block">
+          <CategoryPanel />
+        </div>
       </div>
 
       <Modal

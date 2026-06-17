@@ -84,10 +84,24 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
         .single();
 
       if (error) throw error;
+
+      // Cross-sync: If completed status is being updated and there is a linked task, update the task
+      if (updates.completed !== undefined && data.task_id) {
+        await supabase
+          .from("tasks")
+          .update({
+            status: updates.completed ? "completed" : "not_started",
+            completed_at: updates.completed ? (updates.completed_at || new Date().toISOString()) : null,
+            actual_minutes: updates.completed ? updates.actual_minutes : null
+          })
+          .eq("id", data.task_id);
+      }
+
       return data as CalendarEvent;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 

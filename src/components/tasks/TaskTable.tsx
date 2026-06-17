@@ -82,7 +82,8 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-white/10 bg-white/5 text-sm text-white/60">
@@ -167,6 +168,82 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden flex flex-col divide-y divide-white/10">
+        {tasks.map((task) => (
+          <div 
+            key={task.id} 
+            className={`p-4 flex gap-3 ${
+              task.status === "completed" ? "bg-white/[0.02]" : "bg-transparent"
+            }`}
+          >
+            <button 
+              onClick={() => handleToggleStatus(task)}
+              className="mt-1 text-white/40 hover:text-tempora-cyan transition-colors shrink-0"
+            >
+              {task.status === "completed" ? (
+                <CheckCircle2 className="w-6 h-6 text-tempora-cyan" />
+              ) : (
+                <Circle className="w-6 h-6" />
+              )}
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start gap-2 mb-1">
+                <div className={`font-medium break-words ${task.status === "completed" ? "text-white/40 line-through" : "text-white/90"}`}>
+                  {task.title}
+                </div>
+                <div className="shrink-0">{getPriorityBadge(task.priority)}</div>
+              </div>
+              
+              {task.description && (
+                <div className="text-sm text-white/40 line-clamp-2 mb-3">
+                  {task.description}
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {task.category ? (
+                    <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-md">
+                      <div 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: task.category.color }}
+                      />
+                      <span className="text-xs text-white/70">{task.category.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-white/30 bg-white/5 px-2 py-1 rounded-md">Uncategorized</span>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-white/40">
+                    <Clock className="w-3 h-3" />
+                    {task.estimated_minutes}m
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0 text-white/40 hover:text-white"
+                    onClick={() => onEditTask(task)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0 text-white/40 hover:text-red-400"
+                    onClick={() => setDeleteConfirmId(task.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <ConfirmDialog

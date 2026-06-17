@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CompletionModal } from "@/components/ui/CompletionModal";
+import { useEffect } from "react";
 
 export function CalendarView() {
   const calendarRef = useRef<FullCalendar>(null);
@@ -22,6 +23,15 @@ export function CalendarView() {
   });
   
   const { events, updateEvent, deleteEvent } = useCalendarEvents(dateRange);
+
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -141,13 +151,14 @@ export function CalendarView() {
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 overflow-hidden calendar-wrapper">
       {/* We use a global CSS override in globals.css for fullcalendar styles to match our dark theme */}
       <FullCalendar
+        key={isMobile ? 'mobile' : 'desktop'}
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, rrulePlugin]}
-        initialView="timeGridWeek"
+        initialView={isMobile ? "timeGridDay" : "timeGridWeek"}
         headerToolbar={{
-          left: "prev,next today",
+          left: isMobile ? "prev,next" : "prev,next today",
           center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay"
+          right: isMobile ? "dayGridMonth,timeGridDay" : "dayGridMonth,timeGridWeek,timeGridDay"
         }}
         events={calendarEvents}
         editable={true}

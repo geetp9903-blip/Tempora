@@ -18,6 +18,10 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Tempora | Plan. Schedule. Improve.",
   description: "Tempora brings your tasks, calendar, and productivity insights into one powerful workspace.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

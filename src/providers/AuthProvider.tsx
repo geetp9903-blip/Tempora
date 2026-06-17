@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
+import { LoadingScreen } from '@/components/ui/LoadingScreen'
 
 type AuthContextType = {
   user: User | null
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, session, loading, signOut }}>
-      {children}
+      {loading ? <LoadingScreen fullScreen /> : children}
     </AuthContext.Provider>
   )
 }

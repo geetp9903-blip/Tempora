@@ -90,10 +90,25 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
         .single();
 
       if (error) throw error;
+
+      // Cross-sync: If status is being updated, update any linked calendar events
+      if (updates.status !== undefined) {
+        const isCompleted = updates.status === "completed";
+        await supabase
+          .from("calendar_events")
+          .update({ 
+            completed: isCompleted,
+            completed_at: isCompleted ? (updates.completed_at || new Date().toISOString()) : null,
+            actual_minutes: isCompleted ? updates.actual_minutes : null
+          })
+          .eq("task_id", id);
+      }
+
       return data as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
     },
   });
 
