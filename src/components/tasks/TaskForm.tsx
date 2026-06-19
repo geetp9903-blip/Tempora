@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -31,14 +31,19 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
   
   const isEditing = !!initialData;
   const isLoading = isCreating || isUpdating;
+  const isSubmittingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmittingRef.current) return;
+
     if (!title.trim()) {
       toast.error("Task title is required");
       return;
     }
+
+    isSubmittingRef.current = true;
 
     try {
       let finalCategoryId = categoryId || null;
@@ -70,6 +75,8 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
       onSuccess?.();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

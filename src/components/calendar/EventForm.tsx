@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -74,6 +74,7 @@ export function EventForm({ initialData, onSuccess, onCancel, selectedDateStr }:
   
   const isEditing = !!initialData?.id;
   const isLoading = isCreating || isUpdating;
+  const isSubmittingRef = useRef(false);
 
   const handleRecurrenceChange = useCallback((rule: string) => {
     setRecurrenceRule(rule);
@@ -82,6 +83,8 @@ export function EventForm({ initialData, onSuccess, onCancel, selectedDateStr }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmittingRef.current) return;
+
     if (!title.trim()) {
       toast.error("Event title is required");
       return;
@@ -95,6 +98,8 @@ export function EventForm({ initialData, onSuccess, onCancel, selectedDateStr }:
     // Convert local time strings back to ISO strings for the DB
     const startIso = new Date(startTime).toISOString();
     const endIso = new Date(endTime).toISOString();
+
+    isSubmittingRef.current = true;
 
     try {
       let finalCategoryId = categoryId || null;
@@ -159,6 +164,8 @@ export function EventForm({ initialData, onSuccess, onCancel, selectedDateStr }:
       onSuccess?.();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

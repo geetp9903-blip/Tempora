@@ -21,8 +21,18 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
 
+  const isTaskCompletedToday = (task: Task) => {
+    if (task.status === "completed") return true;
+    if (task.completed_at) {
+      const completedDate = new Date(task.completed_at).toDateString();
+      const todayDate = new Date().toDateString();
+      return completedDate === todayDate;
+    }
+    return false;
+  };
+
   const handleToggleStatus = async (task: Task) => {
-    if (task.status !== "completed") {
+    if (!isTaskCompletedToday(task)) {
       setCompletionTask(task);
     } else {
       await updateTask({ 
@@ -99,7 +109,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
               <tr 
                 key={task.id} 
                 className={`group transition-colors duration-200 ${
-                  task.status === "completed" ? "bg-white/[0.02]" : "hover:bg-white/[0.03]"
+                  isTaskCompletedToday(task) ? "bg-white/[0.02]" : "hover:bg-white/[0.03]"
                 }`}
               >
                 <td className="px-6 py-4">
@@ -107,7 +117,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
                     onClick={() => handleToggleStatus(task)}
                     className="text-white/40 hover:text-tempora-cyan transition-colors"
                   >
-                    {task.status === "completed" ? (
+                    {isTaskCompletedToday(task) ? (
                       <CheckCircle2 className="w-6 h-6 text-tempora-cyan" />
                     ) : (
                       <Circle className="w-6 h-6" />
@@ -115,7 +125,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
                   </button>
                 </td>
                 <td className="px-6 py-4">
-                  <div className={`font-medium ${task.status === "completed" ? "text-white/40 line-through" : "text-white/90"}`}>
+                  <div className={`font-medium ${isTaskCompletedToday(task) ? "text-white/40 line-through" : "text-white/90"}`}>
                     {task.title}
                   </div>
                   {task.description && (
@@ -176,14 +186,14 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
           <div 
             key={task.id} 
             className={`p-4 flex gap-3 ${
-              task.status === "completed" ? "bg-white/[0.02]" : "bg-transparent"
+              isTaskCompletedToday(task) ? "bg-white/[0.02]" : "bg-transparent"
             }`}
           >
             <button 
               onClick={() => handleToggleStatus(task)}
               className="mt-1 text-white/40 hover:text-tempora-cyan transition-colors shrink-0"
             >
-              {task.status === "completed" ? (
+              {isTaskCompletedToday(task) ? (
                 <CheckCircle2 className="w-6 h-6 text-tempora-cyan" />
               ) : (
                 <Circle className="w-6 h-6" />
@@ -191,7 +201,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start gap-2 mb-1">
-                <div className={`font-medium break-words ${task.status === "completed" ? "text-white/40 line-through" : "text-white/90"}`}>
+                <div className={`font-medium break-words ${isTaskCompletedToday(task) ? "text-white/40 line-through" : "text-white/90"}`}>
                   {task.title}
                 </div>
                 <div className="shrink-0">{getPriorityBadge(task.priority)}</div>

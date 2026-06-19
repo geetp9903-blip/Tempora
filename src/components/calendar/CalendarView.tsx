@@ -22,7 +22,7 @@ export function CalendarView() {
     end: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString() 
   });
   
-  const { events, updateEvent, deleteEvent } = useCalendarEvents(dateRange);
+  const { events, createEvent, updateEvent, deleteEvent } = useCalendarEvents(dateRange);
 
   const [isMobile, setIsMobile] = useState(false);
   
@@ -42,8 +42,10 @@ export function CalendarView() {
   const [completionEvent, setCompletionEvent] = useState<CalendarEvent | null>(null);
 
   const getEventDuration = (event: Partial<CalendarEvent>) => {
-    if (!event.start_time || !event.end_time) return 30;
-    return Math.max(1, Math.round((new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000));
+    const start = event.occurrence_start || event.start_time;
+    const end = event.occurrence_end || event.end_time;
+    if (!start || !end) return 30;
+    return Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000));
   };
 
   // Handle clicking on a date cell to create a new event
@@ -58,7 +60,11 @@ export function CalendarView() {
     const eventId = arg.event.id;
     const event = events.find(e => e.id === eventId);
     if (event) {
-      setEditingEvent(event);
+      setEditingEvent({
+        ...event,
+        occurrence_start: arg.event.start ? arg.event.start.toISOString() : undefined,
+        occurrence_end: arg.event.end ? arg.event.end.toISOString() : (arg.event.start ? arg.event.start.toISOString() : undefined),
+      });
       setIsFormOpen(true);
     }
   };
@@ -135,13 +141,45 @@ export function CalendarView() {
 
   const handleCompleteEvent = async ({ actualMinutes, notes }: { actualMinutes: number, notes?: string }) => {
     if (completionEvent) {
-      await updateEvent({
-        id: completionEvent.id,
-        completed: true,
-        completed_at: new Date().toISOString(),
-        actual_minutes: actualMinutes,
-        notes: notes || completionEvent.notes,
-      });
+      const startStr = completionEvent.occurrence_start || completionEvent.start_time;
+      const endStr = completionEvent.occurrence_end || completionEvent.end_time;
+
+      if (completionEvent.is_recurring && completionEvent.recurrence_rule) {
+        // EXDATE format: YYYYMMDDTHHMMSSZ
+        const exdateStr = new Date(startStr).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const origEvent = events.find(e => e.id === completionEvent.id);
+        const newRRule = origEvent?.recurrence_rule 
+          ? `${origEvent.recurrence_rule}\nEXDATE:${exdateStr}` 
+          : `EXDATE:${exdateStr}`;
+
+        await updateEvent({
+          id: completionEvent.id,
+          recurrence_rule: newRRule
+        });
+
+        // Create the completed clone using the occurrence's dates
+        await createEvent({
+          title: completionEvent.title,
+          category_id: completionEvent.category_id,
+          task_id: completionEvent.task_id, // Link to the same task
+          start_time: startStr,
+          end_time: endStr,
+          notes: notes || completionEvent.notes,
+          completed: true,
+          completed_at: new Date().toISOString(),
+          actual_minutes: actualMinutes,
+          is_recurring: false,
+          recurrence_rule: null
+        });
+      } else {
+        await updateEvent({
+          id: completionEvent.id,
+          completed: true,
+          completed_at: new Date().toISOString(),
+          actual_minutes: actualMinutes,
+          notes: notes || completionEvent.notes,
+        });
+      }
       setCompletionEvent(null);
       setIsFormOpen(false);
     }

@@ -1,8 +1,12 @@
+'use client'
+
 import * as React from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/Button"
+import { usePageLoader } from "@/providers/PageLoaderProvider"
 
 export const CTASection: React.FC = () => {
+  const { navigate } = usePageLoader()
+
   return (
     <section className="py-24 relative px-6 max-w-5xl mx-auto text-center">
       <div className="glass-card p-12 md:p-20 flex flex-col items-center gap-6 border border-brand-primary/20 relative overflow-hidden">
@@ -13,9 +17,14 @@ export const CTASection: React.FC = () => {
         <p className="text-secondary text-base max-w-xl relative z-10">
           Join Tempora today and start planning, scheduling, and improving your daily routine. Free to use.
         </p>
-        <Link href="/signup" className="relative z-10 mt-4">
-          <Button variant="primary" size="lg" className="px-10">Get Started Free</Button>
-        </Link>
+        <Button 
+          variant="primary" 
+          size="lg" 
+          className="px-10 relative z-10 mt-4"
+          onClick={() => navigate('/signup')}
+        >
+          Get Started Free
+        </Button>
       </div>
     </section>
   )

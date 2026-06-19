@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { PageLoaderProvider } from "@/providers/PageLoaderProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Toaster } from "sonner";
 
@@ -36,10 +37,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-primary">
         <QueryProvider>
-          <AuthProvider>
-            {children}
-            <Toaster theme="dark" position="top-right" richColors />
-          </AuthProvider>
+          <PageLoaderProvider>
+            <AuthProvider>
+              {children}
+              <Toaster theme="dark" position="top-right" richColors />
+            </AuthProvider>
+          </PageLoaderProvider>
         </QueryProvider>
       </body>
     </html>

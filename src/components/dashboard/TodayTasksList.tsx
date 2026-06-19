@@ -13,8 +13,25 @@ export function TodayTasksList() {
   const { tasks, isLoading, updateTask } = useTasks();
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
 
+  const getLocalDateStr = (dateParam: Date | string | null) => {
+    if (!dateParam) return null;
+    const d = new Date(dateParam);
+    if (isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const todayStr = getLocalDateStr(new Date())!;
+
+  const isTaskCompletedToday = (task: Task) => {
+    if (task.status === "completed") return true;
+    if (task.completed_at) {
+      const completedDate = getLocalDateStr(task.completed_at);
+      return completedDate === todayStr;
+    }
+    return false;
+  };
+
   const handleToggleStatus = async (task: Task) => {
-    if (task.status !== "completed") {
+    if (!isTaskCompletedToday(task)) {
       setCompletionTask(task);
     } else {
       await updateTask({ 
@@ -38,7 +55,13 @@ export function TodayTasksList() {
     }
   };
 
-  const todayTasks = tasks.slice(0, 5); // Simplification: just taking top 5 tasks
+  const todayTasks = tasks.filter(t => {
+    // Hide if permanently completed
+    if (t.status === "completed") return false;
+    // Hide if completed today (recurring event logic keeps status 'not_started')
+    if (t.completed_at && getLocalDateStr(t.completed_at) === todayStr) return false;
+    return true;
+  }).slice(0, 5);
 
   if (isLoading) {
     return (

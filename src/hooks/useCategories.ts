@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { COLOR_PRESETS, PresetKey } from "@/lib/colorPresets";
+import { usePageLoader } from "@/providers/PageLoaderProvider";
 
 export type Category = {
   id: string;
@@ -13,6 +14,7 @@ export type Category = {
 export function useCategories() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const { startLoading, stopLoading } = usePageLoader();
 
   const query = useQuery({
     queryKey: ["categories"],
@@ -45,6 +47,12 @@ export function useCategories() {
   });
 
   const createMutation = useMutation({
+    onMutate: () => {
+      startLoading();
+    },
+    onSettled: () => {
+      stopLoading();
+    },
     mutationFn: async (newCategory: Omit<Category, "id" | "user_id" | "created_at">) => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not authenticated");
@@ -64,6 +72,12 @@ export function useCategories() {
   });
 
   const updateMutation = useMutation({
+    onMutate: () => {
+      startLoading();
+    },
+    onSettled: () => {
+      stopLoading();
+    },
     mutationFn: async ({ id, ...updates }: Partial<Category> & { id: string }) => {
       const { data, error } = await supabase
         .from("categories")
@@ -81,6 +95,12 @@ export function useCategories() {
   });
 
   const deleteMutation = useMutation({
+    onMutate: () => {
+      startLoading();
+    },
+    onSettled: () => {
+      stopLoading();
+    },
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("categories").delete().eq("id", id);
       if (error) throw error;
@@ -92,6 +112,12 @@ export function useCategories() {
   });
 
   const changePresetMutation = useMutation({
+    onMutate: () => {
+      startLoading();
+    },
+    onSettled: () => {
+      stopLoading();
+    },
     mutationFn: async ({ newPreset, oldPreset }: { newPreset: PresetKey; oldPreset: PresetKey }) => {
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user) {

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { useCategories } from "@/hooks/useCategories";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { rrulestr } from "rrule";
 
 export function useAnalyticsData(dateRangeDays: string) {
   const { tasks } = useTasks();
@@ -30,9 +31,15 @@ export function useAnalyticsData(dateRangeDays: string) {
         label: `${d.getMonth() + 1}/${d.getDate()}`,
         planned: 0,
         actual: 0,
-        completedCount: 0
+        completedCount: 0,
+        added: 0 // Track for WeeklyCompletionChart parity if needed
       });
     }
+
+    const rangeStartDate = new Date(today);
+    rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
+    const rangeEndDate = new Date(today);
+    rangeEndDate.setHours(23, 59, 59, 999);
 
     const catMap = new Map();
     categories.forEach(cat => {
@@ -54,50 +61,85 @@ export function useAnalyticsData(dateRangeDays: string) {
     let totalActualMinutes = 0;
     let totalPlannedMinutes = 0;
 
+    // Track completed tasks and task ids that have calendar events
+    const completedEventTaskIds = new Set(
+      events.filter(e => e.completed).map(e => e.task_id).filter(Boolean)
+    );
+    const taskIdsWithEvents = new Set(
+      events.map(e => e.task_id).filter(Boolean)
+    );
+
     tasks.forEach(task => {
       const createdStr = getLocalDateStr(task.created_at);
       const completedStr = getLocalDateStr(task.completed_at);
       const catId = task.category_id || 'uncategorized';
 
-      if (createdStr && trendMap.has(createdStr)) {
+      // 1. Planned Time: Only count if task is standalone (no linked calendar events).
+      // If there is a linked calendar event, the event duration counts as planned time on its occurrence day(s).
+      const hasEvent = taskIdsWithEvents.has(task.id);
+      if (!hasEvent && createdStr && trendMap.has(createdStr)) {
         trendMap.get(createdStr).planned += task.estimated_minutes || 0;
         if (catMap.has(catId)) catMap.get(catId).planned += task.estimated_minutes || 0;
         totalPlannedMinutes += task.estimated_minutes || 0;
       }
 
+      // 2. Actuals & Completion: Only count if status is completed AND the linked event is not completed (or there's no linked event).
+      // This prevents double-counting when both are completed, while ensuring standalone tasks are accounted for.
       if (task.status === "completed" && completedStr && trendMap.has(completedStr)) {
-        trendMap.get(completedStr).completedCount += 1;
-        totalCompleted += 1;
-        
-        const hasLinkedEvent = events.some(e => e.task_id === task.id);
-        if (!hasLinkedEvent && task.actual_minutes) {
-          trendMap.get(completedStr).actual += task.actual_minutes;
-          if (catMap.has(catId)) catMap.get(catId).actual += task.actual_minutes;
-          totalActualMinutes += task.actual_minutes;
+        const isEventCompleted = completedEventTaskIds.has(task.id);
+        if (!isEventCompleted) {
+          trendMap.get(completedStr).completedCount += 1;
+          totalCompleted += 1;
+          
+          const actual = task.actual_minutes || task.estimated_minutes || 0;
+          trendMap.get(completedStr).actual += actual;
+          if (catMap.has(catId)) catMap.get(catId).actual += actual;
+          totalActualMinutes += actual;
         }
       }
     });
 
     events.forEach(event => {
-      const startStr = getLocalDateStr(event.start_time);
-      const completedStr = getLocalDateStr(event.completed_at);
       const catId = event.category_id || (event.task?.category_id) || 'uncategorized';
-      
       const duration = Math.round((new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000);
 
-      if (startStr && trendMap.has(startStr)) {
-        if (!event.task_id) {
+      // 1. Planned Time: Event duration always counts as planned time on its occurrence days, whether linked to a task or not.
+      if (event.is_recurring && event.recurrence_rule) {
+        // Expand occurrences
+        try {
+          const dtstart = new Date(event.start_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+          const ruleStr = `DTSTART:${dtstart}\nRRULE:${event.recurrence_rule}`;
+          const rule = rrulestr(ruleStr);
+          const occurrences = rule.between(rangeStartDate, rangeEndDate, true);
+          
+          occurrences.forEach(occ => {
+            const occStr = getLocalDateStr(occ);
+            if (occStr && trendMap.has(occStr)) {
+              trendMap.get(occStr).planned += duration;
+              if (catMap.has(catId)) catMap.get(catId).planned += duration;
+              totalPlannedMinutes += duration;
+              trendMap.get(occStr).added += 1;
+            }
+          });
+        } catch (err) {
+          console.error("Failed to parse RRULE", err);
+        }
+      } else {
+        const startStr = getLocalDateStr(event.start_time);
+        if (startStr && trendMap.has(startStr)) {
           trendMap.get(startStr).planned += duration;
           if (catMap.has(catId)) catMap.get(catId).planned += duration;
           totalPlannedMinutes += duration;
+          trendMap.get(startStr).added += 1;
         }
       }
 
+      // 2. Actuals & Completion: Count every completed event.
+      // (If linked to a task, the task loop will have skipped counting it because isEventCompleted was true).
+      const completedStr = getLocalDateStr(event.completed_at);
       if (event.completed && completedStr && trendMap.has(completedStr)) {
-        if (!event.task_id) {
-          trendMap.get(completedStr).completedCount += 1;
-          totalCompleted += 1;
-        }
+        trendMap.get(completedStr).completedCount += 1;
+        totalCompleted += 1;
 
         const actual = event.actual_minutes || duration;
         trendMap.get(completedStr).actual += actual;

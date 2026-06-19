@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useCategories } from "@/hooks/useCategories";
@@ -17,6 +17,7 @@ interface CategoryFormProps {
 export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormProps) {
   const { categories, activePreset, createCategory, updateCategory, isCreating, isUpdating } = useCategories();
   const presetColors = COLOR_PRESETS[activePreset]?.colors || [];
+  const isSubmittingRef = useRef(false);
 
   const [name, setName] = useState(initialData?.name || "");
   const [color, setColor] = useState(() => {
@@ -40,10 +41,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmittingRef.current) return;
+
     if (!name.trim()) {
       toast.error("Category name is required");
       return;
     }
+
+    isSubmittingRef.current = true;
 
     try {
       if (isEditing && initialData) {
@@ -56,6 +61,8 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
       onSuccess?.();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

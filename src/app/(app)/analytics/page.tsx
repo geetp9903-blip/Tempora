@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { Select } from "@/components/ui/Select";
 import { CheckCircle2, Clock, Zap, TrendingUp } from "lucide-react";
+import { rrulestr } from "rrule";
 import { ProductivityTrendChart } from "@/components/analytics/ProductivityTrendChart";
 import { PlannedVsActualChart } from "@/components/analytics/PlannedVsActualChart";
 import { TimeByCategoryChart } from "@/components/analytics/TimeByCategoryChart";

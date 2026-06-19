@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTasks } from "@/hooks/useTasks";
-import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import {
   AreaChart,
   Area,
@@ -14,64 +13,24 @@ import {
 } from "recharts";
 
 export function WeeklyCompletionChart() {
-  const { tasks } = useTasks();
-  const { events } = useCalendarEvents({ 
-    start: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(),
-    end: new Date().toISOString()
-  });
+  const { trendData } = useAnalyticsData("7");
 
   const data = useMemo(() => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const today = new Date();
     
-    // Helper to get local date string YYYY-MM-DD
-    const getLocalDateStr = (dateParam: Date | string | null) => {
-      if (!dateParam) return null;
-      const d = new Date(dateParam);
-      if (isNaN(d.getTime())) return null;
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
-
-    // Generate last 7 days of data
-    const chartData = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (6 - i));
+    // Map trendData to WeeklyCompletionChart format
+    return trendData.map(d => {
+      // Parse the date back to get the weekday
+      const [year, month, day] = d.dateStr.split('-');
+      const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       return {
-        name: days[d.getDay()],
-        date: getLocalDateStr(d)!,
-        completed: 0,
-        added: 0
+        name: days[dateObj.getDay()],
+        date: d.dateStr,
+        added: d.added,
+        completed: d.completedCount
       };
-    });
-
-    tasks.forEach(task => {
-      const createdDate = getLocalDateStr(task.created_at);
-      const createdMatch = chartData.find(d => d.date === createdDate);
-      if (createdMatch) {
-        createdMatch.added += 1;
-      }
-
-      if (task.status === "completed") {
-        const completedDate = task.completed_at 
-          ? getLocalDateStr(task.completed_at)
-          : getLocalDateStr(task.created_at);
-        const match = chartData.find(d => d.date === completedDate);
-        if (match) match.completed += 1;
-      }
-    });
-
-    events.forEach(event => {
-      // Add event creations to added count if desired, but we only really care about completed events
-      if (event.completed && event.completed_at) {
-        const completedDate = getLocalDateStr(event.completed_at);
-        const match = chartData.find(d => d.date === completedDate);
-        // Avoid double counting if event is linked to task
-        if (match && !event.task_id) match.completed += 1;
-      }
-    });
-
-    return chartData;
-  }, [tasks, events]);
+    }).reverse(); // The trendData is sorted newest to oldest, we want oldest to newest for the chart
+  }, [trendData]);
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-full flex flex-col">

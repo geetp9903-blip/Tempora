@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/Button"
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { usePageLoader } from "@/providers/PageLoaderProvider"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { startLoading } = usePageLoader()
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [loading, setLoading] = React.useState(false)
@@ -33,11 +35,11 @@ export default function LoginPage() {
       if (error) throw error
 
       toast.success("Welcome back!")
+      startLoading() // show transition loader
       router.push("/dashboard")
       router.refresh()
     } catch (err: any) {
       toast.error(err.message || "Invalid credentials")
-    } finally {
       setLoading(false)
     }
   }
@@ -72,8 +74,8 @@ export default function LoginPage() {
           />
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full mt-2 py-3">
-          {loading ? "Signing in..." : "Sign In"}
+        <Button type="submit" isLoading={loading} className="w-full mt-2 py-3">
+          Sign In
         </Button>
       </form>
 

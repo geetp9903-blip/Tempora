@@ -1,8 +1,12 @@
+'use client'
+
 import * as React from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/Button"
+import { usePageLoader } from "@/providers/PageLoaderProvider"
 
 export const HeroSection: React.FC = () => {
+  const { navigate } = usePageLoader()
+
   return (
     <section className="relative pt-36 pb-20 md:pb-28 flex flex-col items-center justify-center text-center px-6 overflow-hidden min-h-screen">
       <div className="max-w-4xl mx-auto flex flex-col items-center gap-6 relative z-10">
@@ -20,9 +24,14 @@ export const HeroSection: React.FC = () => {
           Plan. Schedule. Improve. — Tempora brings your tasks, calendar scheduling, and productivity insights into one premium, 3D-inspired workspace.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto">
-          <Link href="/signup" className="w-full sm:w-auto">
-            <Button variant="primary" size="lg" className="w-full sm:w-auto px-8">Get Started Free</Button>
-          </Link>
+          <Button 
+            variant="primary" 
+            size="lg" 
+            className="w-full sm:w-auto px-8"
+            onClick={() => navigate('/signup')}
+          >
+            Get Started Free
+          </Button>
           <a href="#features" className="w-full sm:w-auto">
             <Button variant="secondary" size="lg" className="w-full sm:w-auto px-8">See Features</Button>
           </a>

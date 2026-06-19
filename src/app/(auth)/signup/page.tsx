@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/Button"
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { usePageLoader } from "@/providers/PageLoaderProvider"
 
 export default function SignupPage() {
   const router = useRouter()
+  const { startLoading } = usePageLoader()
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -39,11 +41,11 @@ export default function SignupPage() {
       if (error) throw error
 
       toast.success("Account created! Welcome to Tempora.")
+      startLoading() // show transition loader
       router.push("/dashboard")
       router.refresh()
     } catch (err: any) {
       toast.error(err.message || "Error creating account")
-    } finally {
       setLoading(false)
     }
   }
@@ -76,8 +78,8 @@ export default function SignupPage() {
           required
         />
 
-        <Button type="submit" disabled={loading} className="w-full mt-2 py-3">
-          {loading ? "Creating account..." : "Sign Up"}
+        <Button type="submit" isLoading={loading} className="w-full mt-2 py-3">
+          Sign Up
         </Button>
       </form>
 

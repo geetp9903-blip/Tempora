@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCategories, Category } from "@/hooks/useCategories";
 import { COLOR_PRESETS, PresetKey } from "@/lib/colorPresets";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +26,31 @@ export function CategoryPanel() {
   const [editingCategory, setEditingCategory] = useState<Category | undefined>(undefined);
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+
+  const handleLongPressStart = (cat: Category) => {
+    if (pressTimer) clearTimeout(pressTimer);
+    const timer = setTimeout(() => {
+      handleOpenEdit(cat);
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        try { navigator.vibrate(50); } catch (e) {}
+      }
+    }, 600);
+    setPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      setPressTimer(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pressTimer) clearTimeout(pressTimer);
+    };
+  }, [pressTimer]);
 
   const handleOpenCreate = () => {
     setEditingCategory(undefined);
@@ -103,7 +128,13 @@ export function CategoryPanel() {
             {categories.map((cat) => (
               <div 
                 key={cat.id} 
-                className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all duration-200"
+                onMouseDown={() => handleLongPressStart(cat)}
+                onMouseUp={handleLongPressEnd}
+                onMouseLeave={handleLongPressEnd}
+                onTouchStart={() => handleLongPressStart(cat)}
+                onTouchEnd={handleLongPressEnd}
+                onTouchMove={handleLongPressEnd}
+                className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all duration-200 cursor-pointer select-none"
               >
                 <div className="flex items-center gap-3">
                   <div 
@@ -113,7 +144,7 @@ export function CategoryPanel() {
                   <span className="font-medium text-white/90">{cat.name}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
                   <Button 
                     variant="ghost" 
                     size="sm" 
