@@ -105,6 +105,14 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
 
       if (error) throw error;
 
+      // Cross-sync: If category is being updated, update all linked calendar events
+      if (updates.category_id !== undefined) {
+        await supabase
+          .from("calendar_events")
+          .update({ category_id: updates.category_id })
+          .eq("task_id", id);
+      }
+
       // Cross-sync: If status is being updated, update any linked calendar events
       if (updates.status !== undefined) {
         const isCompleted = updates.status === "completed";

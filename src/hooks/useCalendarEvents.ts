@@ -113,6 +113,14 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
 
       if (error) throw error;
 
+      // Cross-sync: If category is being updated and there is a linked task, update the linked task's category
+      if (updates.category_id !== undefined && data.task_id) {
+        await supabase
+          .from("tasks")
+          .update({ category_id: updates.category_id })
+          .eq("id", data.task_id);
+      }
+
       // Cross-sync: If completed status is being updated and there is a linked task
       if (updates.completed !== undefined && data.task_id) {
         if (updates.completed === false) {

@@ -60,6 +60,7 @@ export function useAnalyticsData(dateRangeDays: string) {
     let totalCompleted = 0;
     let totalActualMinutes = 0;
     let totalPlannedMinutes = 0;
+    let completedPlannedMinutes = 0;
 
     // Track completed tasks and task ids that have calendar events
     const completedEventTaskIds = new Set(
@@ -95,12 +96,13 @@ export function useAnalyticsData(dateRangeDays: string) {
           trendMap.get(completedStr).actual += actual;
           if (catMap.has(catId)) catMap.get(catId).actual += actual;
           totalActualMinutes += actual;
+          completedPlannedMinutes += task.estimated_minutes || 0;
         }
       }
     });
 
     events.forEach(event => {
-      const catId = event.category_id || (event.task?.category_id) || 'uncategorized';
+      const catId = (event.task?.category_id) || event.category_id || 'uncategorized';
       const duration = Math.round((new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000);
 
       // 1. Planned Time: Event duration always counts as planned time on its occurrence days, whether linked to a task or not.
@@ -145,6 +147,7 @@ export function useAnalyticsData(dateRangeDays: string) {
         trendMap.get(completedStr).actual += actual;
         if (catMap.has(catId)) catMap.get(catId).actual += actual;
         totalActualMinutes += actual;
+        completedPlannedMinutes += duration;
       }
     });
 
@@ -164,7 +167,7 @@ export function useAnalyticsData(dateRangeDays: string) {
       kpiData: {
         totalCompleted,
         totalHours: (totalActualMinutes / 60).toFixed(1),
-        efficiency: totalPlannedMinutes ? Math.round((totalPlannedMinutes / totalActualMinutes) * 100) : 0,
+        efficiency: totalActualMinutes ? Math.round((completedPlannedMinutes / totalActualMinutes) * 100) : 0,
         currentStreak
       }
     };
