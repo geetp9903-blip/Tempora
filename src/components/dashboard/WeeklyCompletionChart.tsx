@@ -12,31 +12,44 @@ import {
   ResponsiveContainer
 } from "recharts";
 
-export function WeeklyCompletionChart() {
-  const { trendData } = useAnalyticsData("7");
+export function WeeklyCompletionChart({ dateRange = "week" }: { dateRange?: string }) {
+  const { trendData } = useAnalyticsData(dateRange);
 
   const data = useMemo(() => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    
-    // Map trendData to WeeklyCompletionChart format
+    // Map trendData to AreaChart format
     return trendData.map(d => {
-      // Parse the date back to get the weekday
-      const [year, month, day] = d.dateStr.split('-');
-      const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      // If it's week mode, we can format labels as days of week instead of dates,
+      // but useAnalyticsData returns "Month/Day" by default. Let's convert week mode dates to weekday names
+      // or just use d.label directly.
+      let name = d.label;
+      if (dateRange === "week" && d.dateStr.includes("-")) {
+         const [year, month, day] = d.dateStr.split('-');
+         const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+         const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+         name = days[dateObj.getDay()];
+      }
       return {
-        name: days[dateObj.getDay()],
+        name,
         date: d.dateStr,
         added: d.added,
         completed: d.completedCount
       };
-    }).reverse(); // The trendData is sorted newest to oldest, we want oldest to newest for the chart
-  }, [trendData]);
+    }); 
+  }, [trendData, dateRange]);
+
+  const title = dateRange === "today" ? "Today's Activity" :
+                dateRange === "week" ? "Weekly Activity" :
+                dateRange === "all" ? "All Time Activity" : "Monthly Activity";
+  
+  const subtitle = dateRange === "today" ? "Tasks completed vs added today" :
+                   dateRange === "week" ? "Tasks completed vs added this week" :
+                   dateRange === "all" ? "Tasks completed vs added all time" : "Tasks completed vs added this month";
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-full flex flex-col">
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-white">Weekly Activity</h3>
-        <p className="text-sm text-white/60 mt-1">Tasks completed vs added over the last 7 days</p>
+        <h3 className="text-lg font-bold text-white">{title}</h3>
+        <p className="text-sm text-white/60 mt-1">{subtitle}</p>
       </div>
       
       <div className="flex-1 min-h-[300px]">

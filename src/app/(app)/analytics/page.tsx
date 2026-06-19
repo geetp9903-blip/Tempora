@@ -2,37 +2,26 @@
 
 import { useState } from "react";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
-import { Select } from "@/components/ui/Select";
+import { GlobalDateRangeSelector } from "@/components/ui/GlobalDateRangeSelector";
 import { CheckCircle2, Clock, Zap, TrendingUp } from "lucide-react";
-import { rrulestr } from "rrule";
 import { ProductivityTrendChart } from "@/components/analytics/ProductivityTrendChart";
 import { PlannedVsActualChart } from "@/components/analytics/PlannedVsActualChart";
 import { TimeByCategoryChart } from "@/components/analytics/TimeByCategoryChart";
 
 export default function AnalyticsPage() {
-  const [dateRange, setDateRange] = useState("7");
+  const [dateRange, setDateRange] = useState("week");
   const { kpiData } = useAnalyticsData(dateRange);
 
   return (
     <div className="flex flex-col gap-6 h-full pb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Analytics</h2>
           <p className="text-white/60 mt-1">Deep dive into your productivity patterns.</p>
         </div>
         
-        <div className="w-full sm:w-48">
-          <Select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            options={[
-              { value: "7", label: "Last 7 Days" },
-              { value: "14", label: "Last 14 Days" },
-              { value: "30", label: "Last 30 Days" },
-            ]}
-          />
-        </div>
+        <GlobalDateRangeSelector value={dateRange} onChange={setDateRange} />
       </div>
 
       {/* KPI Cards */}

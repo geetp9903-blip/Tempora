@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDashboard, WidgetId } from "@/hooks/useDashboard";
 import { KPICards } from "@/components/dashboard/KPICards";
@@ -9,6 +10,7 @@ import { TodayTasksList } from "@/components/dashboard/TodayTasksList";
 import { ProductivityTrendChart } from "@/components/analytics/ProductivityTrendChart";
 import { PlannedVsActualChart } from "@/components/analytics/PlannedVsActualChart";
 import { TimeByCategoryChart } from "@/components/analytics/TimeByCategoryChart";
+import { GlobalDateRangeSelector } from "@/components/ui/GlobalDateRangeSelector";
 
 const AiInsightsPlaceholder = () => (
   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-[300px] flex flex-col items-center justify-center w-full">
@@ -39,6 +41,7 @@ const WIDGET_REGISTRY: Record<WidgetId, { component: React.FC<any>, spanClass: s
 export default function DashboardPage() {
   const { user } = useAuth();
   const { layout, isLoading } = useDashboard();
+  const [dateRange, setDateRange] = useState("week");
   
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || "User";
 
@@ -54,11 +57,15 @@ export default function DashboardPage() {
   // CSS Grid will naturally handle varying spans, but we need the main container to be 3 columns
   return (
     <div className="flex flex-col gap-6 h-full pb-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">
-          Welcome back, {firstName}
-        </h2>
-        <p className="text-white/60 mt-1">Here's your customized productivity overview.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            Welcome back, {firstName}
+          </h2>
+          <p className="text-white/60 mt-1">Here's your customized productivity overview.</p>
+        </div>
+        
+        <GlobalDateRangeSelector value={dateRange} onChange={setDateRange} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-min">
@@ -69,7 +76,7 @@ export default function DashboardPage() {
           const WidgetComponent = WidgetConfig.component;
           return (
             <div key={widgetId} className={WidgetConfig.spanClass}>
-              <WidgetComponent dateRange="7" />
+              <WidgetComponent dateRange={dateRange} />
             </div>
           );
         })}

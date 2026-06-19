@@ -4,16 +4,52 @@ import { useCategories } from "@/hooks/useCategories";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { rrulestr } from "rrule";
 
-export function useAnalyticsData(dateRangeDays: string) {
+export function useAnalyticsData(dateRangeStr: string) {
   const { tasks } = useTasks();
   const { categories } = useCategories();
   const { events } = useCalendarEvents();
   
   return useMemo(() => {
-    const days = parseInt(dateRangeDays);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    let rangeStartDate = new Date(today);
+    let rangeEndDate = new Date(today);
+    rangeEndDate.setHours(23, 59, 59, 999);
+
+    if (dateRangeStr === "today") {
+      rangeStartDate.setHours(0, 0, 0, 0);
+    } else if (dateRangeStr === "week") {
+      const day = today.getDay() || 7;
+      rangeStartDate.setDate(today.getDate() - day + 1);
+      rangeStartDate.setHours(0, 0, 0, 0);
+      rangeEndDate = new Date(rangeStartDate);
+      rangeEndDate.setDate(rangeStartDate.getDate() + 6);
+      rangeEndDate.setHours(23, 59, 59, 999);
+    } else if (dateRangeStr.startsWith("month-")) {
+      const [_, year, month] = dateRangeStr.split("-");
+      rangeStartDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      rangeEndDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+    } else if (dateRangeStr === "all") {
+      let earliest = today.getTime();
+      tasks.forEach(t => {
+        const d = new Date(t.created_at).getTime();
+        if (d < earliest) earliest = d;
+      });
+      events.forEach(e => {
+        const d = new Date(e.start_time).getTime();
+        if (d < earliest) earliest = d;
+      });
+      rangeStartDate = new Date(earliest);
+      rangeStartDate.setHours(0, 0, 0, 0);
+    } else {
+      const days = parseInt(dateRangeStr) || 7;
+      rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
+      rangeStartDate.setHours(0, 0, 0, 0);
+    }
+
+    const isAllTime = dateRangeStr === "all";
+    
     const getLocalDateStr = (dateParam: Date | string | null) => {
       if (!dateParam) return null;
       const d = new Date(dateParam);
@@ -21,25 +57,63 @@ export function useAnalyticsData(dateRangeDays: string) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
-    const trendMap = new Map();
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = getLocalDateStr(d)!;
-      trendMap.set(dateStr, {
-        dateStr,
-        label: `${d.getMonth() + 1}/${d.getDate()}`,
-        planned: 0,
-        actual: 0,
-        completedCount: 0,
-        added: 0 // Track for WeeklyCompletionChart parity if needed
-      });
-    }
+    const isToday = dateRangeStr === "today";
+    
+    const getGroupKey = (d: Date) => {
+      if (isAllTime) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      } else if (isToday) {
+        return String(d.getHours()).padStart(2, '0');
+      } else {
+        return getLocalDateStr(d)!;
+      }
+    };
 
-    const rangeStartDate = new Date(today);
-    rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
-    const rangeEndDate = new Date(today);
-    rangeEndDate.setHours(23, 59, 59, 999);
+    const trendMap = new Map();
+    if (isAllTime) {
+      let currentMonth = new Date(rangeStartDate);
+      currentMonth.setDate(1);
+      while (currentMonth <= rangeEndDate) {
+        const key = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+        const shortYear = String(currentMonth.getFullYear()).slice(2);
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        trendMap.set(key, {
+          dateStr: key,
+          label: `${monthNames[currentMonth.getMonth()]} '${shortYear}`,
+          planned: 0,
+          actual: 0,
+          completedCount: 0,
+          added: 0
+        });
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+      }
+    } else if (isToday) {
+      for (let i = 0; i <= 23; i++) {
+        const key = String(i).padStart(2, '0');
+        trendMap.set(key, {
+          dateStr: key,
+          label: `${key}:00`,
+          planned: 0,
+          actual: 0,
+          completedCount: 0,
+          added: 0
+        });
+      }
+    } else {
+      let currentDay = new Date(rangeStartDate);
+      while (currentDay <= rangeEndDate) {
+        const key = getLocalDateStr(currentDay)!;
+        trendMap.set(key, {
+          dateStr: key,
+          label: `${currentDay.getMonth() + 1}/${currentDay.getDate()}`,
+          planned: 0,
+          actual: 0,
+          completedCount: 0,
+          added: 0
+        });
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+    }
 
     const catMap = new Map();
     categories.forEach(cat => {
@@ -57,12 +131,13 @@ export function useAnalyticsData(dateRangeDays: string) {
       planned: 0
     });
 
+    let totalTasks = 0;
+    let estimatedTimeRemaining = 0;
     let totalCompleted = 0;
     let totalActualMinutes = 0;
     let totalPlannedMinutes = 0;
     let completedPlannedMinutes = 0;
 
-    // Track completed tasks and task ids that have calendar events
     const completedEventTaskIds = new Set(
       events.filter(e => e.completed).map(e => e.task_id).filter(Boolean)
     );
@@ -71,32 +146,42 @@ export function useAnalyticsData(dateRangeDays: string) {
     );
 
     tasks.forEach(task => {
-      const createdStr = getLocalDateStr(task.created_at);
-      const completedStr = getLocalDateStr(task.completed_at);
+      const createdDate = new Date(task.created_at);
       const catId = task.category_id || 'uncategorized';
-
-      // 1. Planned Time: Only count if task is standalone (no linked calendar events).
-      // If there is a linked calendar event, the event duration counts as planned time on its occurrence day(s).
       const hasEvent = taskIdsWithEvents.has(task.id);
-      if (!hasEvent && createdStr && trendMap.has(createdStr)) {
-        trendMap.get(createdStr).planned += task.estimated_minutes || 0;
-        if (catMap.has(catId)) catMap.get(catId).planned += task.estimated_minutes || 0;
-        totalPlannedMinutes += task.estimated_minutes || 0;
+
+      // Planned Time & Added Tasks
+      if (createdDate >= rangeStartDate && createdDate <= rangeEndDate) {
+        const groupKey = getGroupKey(createdDate);
+        if (!hasEvent && groupKey && trendMap.has(groupKey)) {
+          trendMap.get(groupKey).planned += task.estimated_minutes || 0;
+          if (catMap.has(catId)) catMap.get(catId).planned += task.estimated_minutes || 0;
+          totalPlannedMinutes += task.estimated_minutes || 0;
+          trendMap.get(groupKey).added += 1;
+          
+          totalTasks += 1;
+          if (task.status !== "completed") {
+            estimatedTimeRemaining += task.estimated_minutes || 0;
+          }
+        }
       }
 
-      // 2. Actuals & Completion: Only count if status is completed AND the linked event is not completed (or there's no linked event).
-      // This prevents double-counting when both are completed, while ensuring standalone tasks are accounted for.
-      if (task.status === "completed" && completedStr && trendMap.has(completedStr)) {
-        const isEventCompleted = completedEventTaskIds.has(task.id);
-        if (!isEventCompleted) {
-          trendMap.get(completedStr).completedCount += 1;
-          totalCompleted += 1;
-          
-          const actual = task.actual_minutes || task.estimated_minutes || 0;
-          trendMap.get(completedStr).actual += actual;
-          if (catMap.has(catId)) catMap.get(catId).actual += actual;
-          totalActualMinutes += actual;
-          completedPlannedMinutes += task.estimated_minutes || 0;
+      // Actuals & Completion
+      if (task.status === "completed" && task.completed_at) {
+        const completedDate = new Date(task.completed_at);
+        if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
+          const groupKey = getGroupKey(completedDate);
+          const isEventCompleted = completedEventTaskIds.has(task.id);
+          if (!isEventCompleted && groupKey && trendMap.has(groupKey)) {
+            trendMap.get(groupKey).completedCount += 1;
+            totalCompleted += 1;
+            
+            const actual = task.actual_minutes || task.estimated_minutes || 0;
+            trendMap.get(groupKey).actual += actual;
+            if (catMap.has(catId)) catMap.get(catId).actual += actual;
+            totalActualMinutes += actual;
+            completedPlannedMinutes += task.estimated_minutes || 0;
+          }
         }
       }
     });
@@ -105,9 +190,7 @@ export function useAnalyticsData(dateRangeDays: string) {
       const catId = (event.task?.category_id) || event.category_id || 'uncategorized';
       const duration = Math.round((new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000);
 
-      // 1. Planned Time: Event duration always counts as planned time on its occurrence days, whether linked to a task or not.
       if (event.is_recurring && event.recurrence_rule) {
-        // Expand occurrences
         try {
           const dtstart = new Date(event.start_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
           const ruleStr = `DTSTART:${dtstart}\nRRULE:${event.recurrence_rule}`;
@@ -115,39 +198,53 @@ export function useAnalyticsData(dateRangeDays: string) {
           const occurrences = rule.between(rangeStartDate, rangeEndDate, true);
           
           occurrences.forEach(occ => {
-            const occStr = getLocalDateStr(occ);
-            if (occStr && trendMap.has(occStr)) {
-              trendMap.get(occStr).planned += duration;
+            const groupKey = getGroupKey(occ);
+            if (groupKey && trendMap.has(groupKey)) {
+              trendMap.get(groupKey).planned += duration;
               if (catMap.has(catId)) catMap.get(catId).planned += duration;
               totalPlannedMinutes += duration;
-              trendMap.get(occStr).added += 1;
+              trendMap.get(groupKey).added += 1;
+              
+              totalTasks += 1;
+              estimatedTimeRemaining += duration;
             }
           });
         } catch (err) {
           console.error("Failed to parse RRULE", err);
         }
       } else {
-        const startStr = getLocalDateStr(event.start_time);
-        if (startStr && trendMap.has(startStr)) {
-          trendMap.get(startStr).planned += duration;
-          if (catMap.has(catId)) catMap.get(catId).planned += duration;
-          totalPlannedMinutes += duration;
-          trendMap.get(startStr).added += 1;
+        const startDate = new Date(event.start_time);
+        if (startDate >= rangeStartDate && startDate <= rangeEndDate) {
+          const groupKey = getGroupKey(startDate);
+          if (groupKey && trendMap.has(groupKey)) {
+            trendMap.get(groupKey).planned += duration;
+            if (catMap.has(catId)) catMap.get(catId).planned += duration;
+            totalPlannedMinutes += duration;
+            trendMap.get(groupKey).added += 1;
+            
+            totalTasks += 1;
+            if (!event.completed) {
+              estimatedTimeRemaining += duration;
+            }
+          }
         }
       }
 
-      // 2. Actuals & Completion: Count every completed event.
-      // (If linked to a task, the task loop will have skipped counting it because isEventCompleted was true).
-      const completedStr = getLocalDateStr(event.completed_at);
-      if (event.completed && completedStr && trendMap.has(completedStr)) {
-        trendMap.get(completedStr).completedCount += 1;
-        totalCompleted += 1;
+      if (event.completed && event.completed_at) {
+        const completedDate = new Date(event.completed_at);
+        if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
+          const groupKey = getGroupKey(completedDate);
+          if (groupKey && trendMap.has(groupKey)) {
+            trendMap.get(groupKey).completedCount += 1;
+            totalCompleted += 1;
 
-        const actual = event.actual_minutes || duration;
-        trendMap.get(completedStr).actual += actual;
-        if (catMap.has(catId)) catMap.get(catId).actual += actual;
-        totalActualMinutes += actual;
-        completedPlannedMinutes += duration;
+            const actual = event.actual_minutes || duration;
+            trendMap.get(groupKey).actual += actual;
+            if (catMap.has(catId)) catMap.get(catId).actual += actual;
+            totalActualMinutes += actual;
+            completedPlannedMinutes += duration;
+          }
+        }
       }
     });
 
@@ -165,11 +262,13 @@ export function useAnalyticsData(dateRangeDays: string) {
       trendData: trendArray,
       categoryData: Array.from(catMap.values()).filter(c => c.actual > 0 || c.planned > 0).sort((a, b) => b.actual - a.actual),
       kpiData: {
+        totalTasks,
         totalCompleted,
+        estimatedTimeRemaining,
         totalHours: (totalActualMinutes / 60).toFixed(1),
         efficiency: totalActualMinutes ? Math.round((completedPlannedMinutes / totalActualMinutes) * 100) : 0,
         currentStreak
       }
     };
-  }, [tasks, events, categories, dateRangeDays]);
+  }, [tasks, events, categories, dateRangeStr]);
 }
