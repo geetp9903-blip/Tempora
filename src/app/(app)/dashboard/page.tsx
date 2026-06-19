@@ -11,20 +11,7 @@ import { ProductivityTrendChart } from "@/components/analytics/ProductivityTrend
 import { PlannedVsActualChart } from "@/components/analytics/PlannedVsActualChart";
 import { TimeByCategoryChart } from "@/components/analytics/TimeByCategoryChart";
 import { GlobalDateRangeSelector } from "@/components/ui/GlobalDateRangeSelector";
-
-const AiInsightsPlaceholder = () => (
-  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-[300px] flex flex-col items-center justify-center w-full">
-    <div className="text-tempora-purple/40 mb-2">
-      <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    </div>
-    <h3 className="text-lg font-bold text-white/80">AI Productivity Insights</h3>
-    <p className="text-sm text-white/40 mt-1 max-w-sm text-center">
-      Complete more tasks to unlock personalized AI recommendations for your workflow.
-    </p>
-  </div>
-);
+import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
 
 // Registry mapping widget IDs to their components and grid spans
 const WIDGET_REGISTRY: Record<WidgetId, { component: React.FC<any>, spanClass: string }> = {
@@ -32,7 +19,7 @@ const WIDGET_REGISTRY: Record<WidgetId, { component: React.FC<any>, spanClass: s
   weekly_chart: { component: WeeklyCompletionChart, spanClass: "col-span-1 lg:col-span-2" },
   category_chart: { component: CategoryBreakdownChart, spanClass: "col-span-1" },
   today_tasks: { component: TodayTasksList, spanClass: "col-span-1 lg:col-span-1" },
-  ai_insights: { component: AiInsightsPlaceholder, spanClass: "col-span-1 lg:col-span-2" },
+  ai_insights: { component: AiInsightsWidget, spanClass: "col-span-1 lg:col-span-2" },
   analytics_trend: { component: ProductivityTrendChart, spanClass: "col-span-1 lg:col-span-2" },
   analytics_planned: { component: PlannedVsActualChart, spanClass: "col-span-1 lg:col-span-1" },
   analytics_time: { component: TimeByCategoryChart, spanClass: "col-span-1 lg:col-span-3" },

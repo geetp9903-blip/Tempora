@@ -17,8 +17,15 @@ export function useAnalyticsData(dateRangeStr: string) {
     let rangeEndDate = new Date(today);
     rangeEndDate.setHours(23, 59, 59, 999);
 
+    let prevStartDate = new Date(today);
+    let prevEndDate = new Date(today);
+
     if (dateRangeStr === "today") {
       rangeStartDate.setHours(0, 0, 0, 0);
+      prevStartDate = new Date(rangeStartDate);
+      prevStartDate.setDate(prevStartDate.getDate() - 1);
+      prevEndDate = new Date(rangeStartDate);
+      prevEndDate.setHours(-1, 59, 59, 999);
     } else if (dateRangeStr === "week") {
       const day = today.getDay() || 7;
       rangeStartDate.setDate(today.getDate() - day + 1);
@@ -26,10 +33,20 @@ export function useAnalyticsData(dateRangeStr: string) {
       rangeEndDate = new Date(rangeStartDate);
       rangeEndDate.setDate(rangeStartDate.getDate() + 6);
       rangeEndDate.setHours(23, 59, 59, 999);
+      
+      prevStartDate = new Date(rangeStartDate);
+      prevStartDate.setDate(prevStartDate.getDate() - 7);
+      prevEndDate = new Date(rangeStartDate);
+      prevEndDate.setHours(-1, 59, 59, 999);
     } else if (dateRangeStr.startsWith("month-")) {
       const [_, year, month] = dateRangeStr.split("-");
       rangeStartDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       rangeEndDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      
+      prevStartDate = new Date(rangeStartDate);
+      prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+      prevEndDate = new Date(rangeStartDate);
+      prevEndDate.setHours(-1, 59, 59, 999);
     } else if (dateRangeStr === "all") {
       let earliest = today.getTime();
       tasks.forEach(t => {
@@ -42,10 +59,17 @@ export function useAnalyticsData(dateRangeStr: string) {
       });
       rangeStartDate = new Date(earliest);
       rangeStartDate.setHours(0, 0, 0, 0);
+      prevStartDate = new Date(earliest);
+      prevEndDate = new Date(earliest);
     } else {
       const days = parseInt(dateRangeStr) || 7;
       rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
       rangeStartDate.setHours(0, 0, 0, 0);
+      
+      prevStartDate = new Date(rangeStartDate);
+      prevStartDate.setDate(prevStartDate.getDate() - days);
+      prevEndDate = new Date(rangeStartDate);
+      prevEndDate.setHours(-1, 59, 59, 999);
     }
 
     const isAllTime = dateRangeStr === "all";
@@ -138,6 +162,9 @@ export function useAnalyticsData(dateRangeStr: string) {
     let totalPlannedMinutes = 0;
     let completedPlannedMinutes = 0;
 
+    let prevTotalActualMinutes = 0;
+    let prevCompletedPlannedMinutes = 0;
+
     const completedEventTaskIds = new Set(
       events.filter(e => e.completed).map(e => e.task_id).filter(Boolean)
     );
@@ -181,6 +208,13 @@ export function useAnalyticsData(dateRangeStr: string) {
             if (catMap.has(catId)) catMap.get(catId).actual += actual;
             totalActualMinutes += actual;
             completedPlannedMinutes += task.estimated_minutes || 0;
+          }
+        } else if (!isAllTime && completedDate >= prevStartDate && completedDate <= prevEndDate) {
+          const isEventCompleted = completedEventTaskIds.has(task.id);
+          if (!isEventCompleted) {
+            const actual = task.actual_minutes || task.estimated_minutes || 0;
+            prevTotalActualMinutes += actual;
+            prevCompletedPlannedMinutes += task.estimated_minutes || 0;
           }
         }
       }
@@ -244,6 +278,10 @@ export function useAnalyticsData(dateRangeStr: string) {
             totalActualMinutes += actual;
             completedPlannedMinutes += duration;
           }
+        } else if (!isAllTime && completedDate >= prevStartDate && completedDate <= prevEndDate) {
+          const actual = event.actual_minutes || duration;
+          prevTotalActualMinutes += actual;
+          prevCompletedPlannedMinutes += duration;
         }
       }
     });
@@ -267,7 +305,9 @@ export function useAnalyticsData(dateRangeStr: string) {
         estimatedTimeRemaining,
         totalHours: (totalActualMinutes / 60).toFixed(1),
         efficiency: totalActualMinutes ? Math.round((completedPlannedMinutes / totalActualMinutes) * 100) : 0,
-        currentStreak
+        currentStreak,
+        previousTotalHours: (prevTotalActualMinutes / 60).toFixed(1),
+        previousEfficiency: prevTotalActualMinutes ? Math.round((prevCompletedPlannedMinutes / prevTotalActualMinutes) * 100) : 0,
       }
     };
   }, [tasks, events, categories, dateRangeStr]);
