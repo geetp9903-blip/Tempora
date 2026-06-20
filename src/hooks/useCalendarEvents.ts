@@ -12,7 +12,7 @@ export type CalendarEvent = {
   title: string;
   start_time: string;
   end_time: string;
-  completed: boolean;
+  status: "not_started" | "in_progress" | "completed" | "partial" | "skipped";
   completed_at: string | null;
   actual_minutes: number | null;
   notes: string | null;
@@ -42,11 +42,15 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
         `)
         .order("start_time", { ascending: true });
 
-      if (dateRange?.start) {
-        query = query.gte("start_time", dateRange.start);
-      }
-      if (dateRange?.end) {
-        query = query.lte("end_time", dateRange.end);
+      if (dateRange?.start && dateRange?.end) {
+        query = query.or(`and(start_time.lte.${dateRange.end},end_time.gte.${dateRange.start}),is_recurring.eq.true`);
+      } else {
+        if (dateRange?.start) {
+          query = query.gte("start_time", dateRange.start);
+        }
+        if (dateRange?.end) {
+          query = query.lte("end_time", dateRange.end);
+        }
       }
 
       const { data, error } = await query;
@@ -76,10 +80,11 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
       if (error) throw error;
 
       // Sync with task if completed
-      if (newEvent.completed && newEvent.task_id) {
+      if (newEvent.status && newEvent.status !== "not_started" && newEvent.task_id) {
         await supabase
           .from("tasks")
           .update({
+            status: newEvent.status,
             completed_at: newEvent.completed_at || new Date().toISOString(),
             actual_minutes: newEvent.actual_minutes
           })
@@ -121,9 +126,9 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
           .eq("id", data.task_id);
       }
 
-      // Cross-sync: If completed status is being updated and there is a linked task
-      if (updates.completed !== undefined && data.task_id) {
-        if (updates.completed === false) {
+      // Cross-sync: If status is being updated and there is a linked task
+      if (updates.status !== undefined && data.task_id) {
+        if (updates.status === "not_started") {
           // Check if this clone was for a recurring event
           const { data: recurringEvents } = await supabase
             .from("calendar_events")
@@ -172,7 +177,7 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
               })
               .eq("id", data.task_id);
               
-            return { ...data, id, completed: false } as CalendarEvent;
+            return { ...data, id, status: "not_started" } as CalendarEvent;
           }
         }
 
@@ -180,9 +185,9 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
         await supabase
           .from("tasks")
           .update({
-            status: updates.completed ? "completed" : "not_started",
-            completed_at: updates.completed ? (updates.completed_at || new Date().toISOString()) : null,
-            actual_minutes: updates.completed ? updates.actual_minutes : null
+            status: updates.status,
+            completed_at: updates.status !== "not_started" ? (updates.completed_at || new Date().toISOString()) : null,
+            actual_minutes: updates.status !== "not_started" ? updates.actual_minutes : null
           })
           .eq("id", data.task_id);
       }

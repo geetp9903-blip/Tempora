@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Category } from "./useCategories";
 import { usePageLoader } from "@/providers/PageLoaderProvider";
 
-export type TaskStatus = "not_started" | "in_progress" | "completed";
+export type TaskStatus = "not_started" | "in_progress" | "completed" | "partial" | "skipped";
 export type TaskPriority = "low" | "medium" | "high";
 
 export type Task = {
@@ -113,9 +113,8 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
           .eq("task_id", id);
       }
 
-      // Cross-sync: If status is being updated, update any linked calendar events
       if (updates.status !== undefined) {
-        const isCompleted = updates.status === "completed";
+        const isFinished = updates.status === "completed" || updates.status === "partial" || updates.status === "skipped";
         
         // Find linked events
         const { data: linkedEvents } = await supabase
@@ -125,7 +124,7 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
            
         const recurringEvent = linkedEvents?.find(e => e.is_recurring);
 
-        if (recurringEvent && isCompleted) {
+        if (recurringEvent && isFinished) {
           // It's a recurring event, so don't complete the task permanently!
           // We revert the task's status to 'not_started' but keep 'completed_at' to hide it for today
           await supabase
@@ -166,17 +165,17 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
               end_time: end.toISOString(),
               is_recurring: false,
               recurrence_rule: null,
-              completed: true,
+              status: updates.status,
               completed_at: updates.completed_at || new Date().toISOString(),
               actual_minutes: updates.actual_minutes || recurringEvent.actual_minutes
             }]);
             
-        } else if (recurringEvent && !isCompleted) {
+        } else if (recurringEvent && !isFinished) {
           // Reverting recurring completion (marking incomplete)
           const todayStrStr = new Date().toDateString();
           const completedCloneToday = linkedEvents?.find(e => 
             !e.is_recurring && 
-            e.completed && 
+            e.status !== "not_started" && 
             e.completed_at && 
             new Date(e.completed_at).toDateString() === todayStrStr
           );
@@ -216,9 +215,9 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
             await supabase
               .from("calendar_events")
               .update({ 
-                completed: isCompleted,
-                completed_at: isCompleted ? (updates.completed_at || new Date().toISOString()) : null,
-                actual_minutes: isCompleted ? updates.actual_minutes : null
+                status: updates.status,
+                completed_at: isFinished ? (updates.completed_at || new Date().toISOString()) : null,
+                actual_minutes: isFinished ? updates.actual_minutes : null
               })
               .eq("id", nonRecurringEvent.id);
           }

@@ -94,6 +94,20 @@ export function useAnalyticsData(dateRangeStr: string) {
     };
 
     const trendMap = new Map();
+    const initTrendEntry = (key: string, label: string) => {
+      trendMap.set(key, {
+        dateStr: key,
+        label,
+        planned: 0,
+        actual: 0,
+        completedCount: 0,
+        added: 0,
+        statusCompleted: 0,
+        statusPartial: 0,
+        statusSkipped: 0
+      });
+    };
+
     if (isAllTime) {
       let currentMonth = new Date(rangeStartDate);
       currentMonth.setDate(1);
@@ -101,40 +115,19 @@ export function useAnalyticsData(dateRangeStr: string) {
         const key = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
         const shortYear = String(currentMonth.getFullYear()).slice(2);
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        trendMap.set(key, {
-          dateStr: key,
-          label: `${monthNames[currentMonth.getMonth()]} '${shortYear}`,
-          planned: 0,
-          actual: 0,
-          completedCount: 0,
-          added: 0
-        });
+        initTrendEntry(key, `${monthNames[currentMonth.getMonth()]} '${shortYear}`);
         currentMonth.setMonth(currentMonth.getMonth() + 1);
       }
     } else if (isToday) {
       for (let i = 0; i <= 23; i++) {
         const key = String(i).padStart(2, '0');
-        trendMap.set(key, {
-          dateStr: key,
-          label: `${key}:00`,
-          planned: 0,
-          actual: 0,
-          completedCount: 0,
-          added: 0
-        });
+        initTrendEntry(key, `${key}:00`);
       }
     } else {
       let currentDay = new Date(rangeStartDate);
       while (currentDay <= rangeEndDate) {
         const key = getLocalDateStr(currentDay)!;
-        trendMap.set(key, {
-          dateStr: key,
-          label: `${currentDay.getMonth() + 1}/${currentDay.getDate()}`,
-          planned: 0,
-          actual: 0,
-          completedCount: 0,
-          added: 0
-        });
+        initTrendEntry(key, `${currentDay.getMonth() + 1}/${currentDay.getDate()}`);
         currentDay.setDate(currentDay.getDate() + 1);
       }
     }
@@ -166,7 +159,7 @@ export function useAnalyticsData(dateRangeStr: string) {
     let prevCompletedPlannedMinutes = 0;
 
     const completedEventTaskIds = new Set(
-      events.filter(e => e.completed).map(e => e.task_id).filter(Boolean)
+      events.filter(e => e.status && e.status !== "not_started" && e.status !== "in_progress").map(e => e.task_id).filter(Boolean)
     );
     const taskIdsWithEvents = new Set(
       events.map(e => e.task_id).filter(Boolean)
@@ -187,31 +180,38 @@ export function useAnalyticsData(dateRangeStr: string) {
           trendMap.get(groupKey).added += 1;
           
           totalTasks += 1;
-          if (task.status !== "completed") {
+          if (task.status !== "completed" && task.status !== "partial" && task.status !== "skipped") {
             estimatedTimeRemaining += task.estimated_minutes || 0;
           }
         }
       }
 
       // Actuals & Completion
-      if (task.status === "completed" && task.completed_at) {
+      if (task.status && task.status !== "not_started" && task.status !== "in_progress" && task.completed_at) {
         const completedDate = new Date(task.completed_at);
         if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
           const groupKey = getGroupKey(completedDate);
           const isEventCompleted = completedEventTaskIds.has(task.id);
           if (!isEventCompleted && groupKey && trendMap.has(groupKey)) {
-            trendMap.get(groupKey).completedCount += 1;
-            totalCompleted += 1;
-            
-            const actual = task.actual_minutes || task.estimated_minutes || 0;
-            trendMap.get(groupKey).actual += actual;
-            if (catMap.has(catId)) catMap.get(catId).actual += actual;
-            totalActualMinutes += actual;
-            completedPlannedMinutes += task.estimated_minutes || 0;
+            // Update status counters
+            if (task.status === "completed") trendMap.get(groupKey).statusCompleted += 1;
+            if (task.status === "partial") trendMap.get(groupKey).statusPartial += 1;
+            if (task.status === "skipped") trendMap.get(groupKey).statusSkipped += 1;
+
+            if (task.status === "completed") {
+              trendMap.get(groupKey).completedCount += 1;
+              totalCompleted += 1;
+              
+              const actual = task.actual_minutes || task.estimated_minutes || 0;
+              trendMap.get(groupKey).actual += actual;
+              if (catMap.has(catId)) catMap.get(catId).actual += actual;
+              totalActualMinutes += actual;
+              completedPlannedMinutes += task.estimated_minutes || 0;
+            }
           }
         } else if (!isAllTime && completedDate >= prevStartDate && completedDate <= prevEndDate) {
           const isEventCompleted = completedEventTaskIds.has(task.id);
-          if (!isEventCompleted) {
+          if (!isEventCompleted && task.status === "completed") {
             const actual = task.actual_minutes || task.estimated_minutes || 0;
             prevTotalActualMinutes += actual;
             prevCompletedPlannedMinutes += task.estimated_minutes || 0;
@@ -257,31 +257,40 @@ export function useAnalyticsData(dateRangeStr: string) {
             trendMap.get(groupKey).added += 1;
             
             totalTasks += 1;
-            if (!event.completed) {
+            if (event.status !== "completed" && event.status !== "partial" && event.status !== "skipped") {
               estimatedTimeRemaining += duration;
             }
           }
         }
       }
 
-      if (event.completed && event.completed_at) {
+      if (event.status && event.status !== "not_started" && event.status !== "in_progress" && event.completed_at) {
         const completedDate = new Date(event.completed_at);
         if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
           const groupKey = getGroupKey(completedDate);
           if (groupKey && trendMap.has(groupKey)) {
-            trendMap.get(groupKey).completedCount += 1;
-            totalCompleted += 1;
+            // Update status counters
+            if (event.status === "completed") trendMap.get(groupKey).statusCompleted += 1;
+            if (event.status === "partial") trendMap.get(groupKey).statusPartial += 1;
+            if (event.status === "skipped") trendMap.get(groupKey).statusSkipped += 1;
 
-            const actual = event.actual_minutes || duration;
-            trendMap.get(groupKey).actual += actual;
-            if (catMap.has(catId)) catMap.get(catId).actual += actual;
-            totalActualMinutes += actual;
-            completedPlannedMinutes += duration;
+            if (event.status === "completed") {
+              trendMap.get(groupKey).completedCount += 1;
+              totalCompleted += 1;
+
+              const actual = event.actual_minutes || duration;
+              trendMap.get(groupKey).actual += actual;
+              if (catMap.has(catId)) catMap.get(catId).actual += actual;
+              totalActualMinutes += actual;
+              completedPlannedMinutes += duration;
+            }
           }
         } else if (!isAllTime && completedDate >= prevStartDate && completedDate <= prevEndDate) {
-          const actual = event.actual_minutes || duration;
-          prevTotalActualMinutes += actual;
-          prevCompletedPlannedMinutes += duration;
+          if (event.status === "completed") {
+            const actual = event.actual_minutes || duration;
+            prevTotalActualMinutes += actual;
+            prevCompletedPlannedMinutes += duration;
+          }
         }
       }
     });
@@ -312,3 +321,4 @@ export function useAnalyticsData(dateRangeStr: string) {
     };
   }, [tasks, events, categories, dateRangeStr]);
 }
+

@@ -11,7 +11,8 @@ export type WidgetId =
   | 'ai_insights'
   | 'analytics_trend'
   | 'analytics_planned'
-  | 'analytics_time';
+  | 'analytics_time'
+  | 'analytics_task_status';
 
 export const WIDGET_OPTIONS: { id: WidgetId; name: string; description: string; defaultEnabled: boolean }[] = [
   { id: 'kpi', name: 'KPI Cards', description: 'Overview of completed tasks, tracked hours, and efficiency.', defaultEnabled: true },
@@ -21,7 +22,8 @@ export const WIDGET_OPTIONS: { id: WidgetId; name: string; description: string; 
   { id: 'ai_insights', name: 'AI Insights Placeholder', description: 'Future AI recommendations section.', defaultEnabled: true },
   { id: 'analytics_trend', name: 'Productivity Trend', description: 'Line chart showing task and event completion trends.', defaultEnabled: false },
   { id: 'analytics_planned', name: 'Time: Planned vs Actual', description: 'Bar chart comparing estimated vs tracked minutes.', defaultEnabled: false },
-  { id: 'analytics_time', name: 'Time by Category', description: 'Pie chart showing where your tracked time went.', defaultEnabled: false }
+  { id: 'analytics_time', name: 'Time by Category', description: 'Pie chart showing where your tracked time went.', defaultEnabled: false },
+  { id: 'analytics_task_status', name: 'Task Status Breakdown', description: 'Bar chart showing completion status distribution.', defaultEnabled: true }
 ];
 
 const DEFAULT_LAYOUT: WidgetId[] = WIDGET_OPTIONS.filter(w => w.defaultEnabled).map(w => w.id);

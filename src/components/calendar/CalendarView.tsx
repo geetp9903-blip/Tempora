@@ -104,7 +104,7 @@ export function CalendarView() {
       backgroundColor: e.category?.color || "#7c3aed",
       borderColor: "transparent",
       extendedProps: {
-        isCompleted: e.completed,
+        status: e.status,
         taskId: e.task_id,
         categoryId: e.category_id,
       }
@@ -139,7 +139,7 @@ export function CalendarView() {
     }
   };
 
-  const handleCompleteEvent = async ({ actualMinutes, notes }: { actualMinutes: number, notes?: string }) => {
+  const handleCompleteEvent = async ({ actualMinutes, notes, status, completedAt }: { actualMinutes: number, notes?: string, status: "completed" | "partial" | "skipped", completedAt: string }) => {
     if (completionEvent) {
       const startStr = completionEvent.occurrence_start || completionEvent.start_time;
       const endStr = completionEvent.occurrence_end || completionEvent.end_time;
@@ -165,8 +165,8 @@ export function CalendarView() {
           start_time: startStr,
           end_time: endStr,
           notes: notes || completionEvent.notes,
-          completed: true,
-          completed_at: new Date().toISOString(),
+          status: status,
+          completed_at: completedAt,
           actual_minutes: actualMinutes,
           is_recurring: false,
           recurrence_rule: null
@@ -174,8 +174,8 @@ export function CalendarView() {
       } else {
         await updateEvent({
           id: completionEvent.id,
-          completed: true,
-          completed_at: new Date().toISOString(),
+          status: status,
+          completed_at: completedAt,
           actual_minutes: actualMinutes,
           notes: notes || completionEvent.notes,
         });
@@ -236,10 +236,10 @@ export function CalendarView() {
               <button
                 type="button"
                 onClick={async () => {
-                  if (editingEvent.completed) {
+                  if (editingEvent.status && editingEvent.status !== "not_started") {
                     await updateEvent({ 
                       id: editingEvent.id!, 
-                      completed: false, 
+                      status: "not_started", 
                       completed_at: null, 
                       actual_minutes: null 
                     });
@@ -248,9 +248,9 @@ export function CalendarView() {
                     setCompletionEvent(editingEvent as CalendarEvent);
                   }
                 }}
-                className={`${editingEvent.completed ? 'text-white/50 hover:text-white' : 'text-tempora-cyan hover:text-cyan-300'} text-sm font-medium transition-colors`}
+                className={`${editingEvent.status && editingEvent.status !== "not_started" ? 'text-white/50 hover:text-white' : 'text-tempora-cyan hover:text-cyan-300'} text-sm font-medium transition-colors`}
               >
-                {editingEvent.completed ? "Mark Incomplete" : "Mark Completed"}
+                {editingEvent.status && editingEvent.status !== "not_started" ? "Mark Not Started" : "Update Status"}
               </button>
 
               <button
@@ -279,8 +279,9 @@ export function CalendarView() {
         <CompletionModal
           isOpen={true}
           onClose={() => setCompletionEvent(null)}
-          title={`Complete: ${completionEvent.title}`}
+          title={`Update Status: ${completionEvent.title}`}
           estimatedMinutes={getEventDuration(completionEvent)}
+          defaultDate={completionEvent.occurrence_start || completionEvent.start_time}
           onSubmit={handleCompleteEvent}
         />
       )}

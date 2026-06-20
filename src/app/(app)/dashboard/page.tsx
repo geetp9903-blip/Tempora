@@ -10,6 +10,7 @@ import { TodayTasksList } from "@/components/dashboard/TodayTasksList";
 import { ProductivityTrendChart } from "@/components/analytics/ProductivityTrendChart";
 import { PlannedVsActualChart } from "@/components/analytics/PlannedVsActualChart";
 import { TimeByCategoryChart } from "@/components/analytics/TimeByCategoryChart";
+import { TaskStatusChart } from "@/components/dashboard/TaskStatusChart";
 import { GlobalDateRangeSelector } from "@/components/ui/GlobalDateRangeSelector";
 import { AiInsightsWidget } from "@/components/dashboard/AiInsightsWidget";
 
@@ -23,6 +24,7 @@ const WIDGET_REGISTRY: Record<WidgetId, { component: React.FC<any>, spanClass: s
   analytics_trend: { component: ProductivityTrendChart, spanClass: "col-span-1 lg:col-span-2" },
   analytics_planned: { component: PlannedVsActualChart, spanClass: "col-span-1 lg:col-span-1" },
   analytics_time: { component: TimeByCategoryChart, spanClass: "col-span-1 lg:col-span-3" },
+  analytics_task_status: { component: TaskStatusChart, spanClass: "col-span-1 lg:col-span-1" },
 };
 
 export default function DashboardPage() {

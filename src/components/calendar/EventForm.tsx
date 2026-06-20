@@ -146,7 +146,7 @@ export function EventForm({ initialData, onSuccess, onCancel, selectedDateStr }:
         start_time: startIso,
         end_time: endIso,
         notes: notes.trim() || null,
-        completed: initialData?.completed || false,
+        status: initialData?.status || "not_started",
         completed_at: initialData?.completed_at || null,
         actual_minutes: initialData?.actual_minutes || null,
         is_recurring: !!recurrenceRule,
