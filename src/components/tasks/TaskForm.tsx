@@ -55,6 +55,7 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
         finalCategoryId = newCat.id;
       }
 
+      const isFinished = status === "completed" || status === "partial" || status === "skipped";
       const taskData = {
         title: title.trim(),
         description: description.trim() || null,
@@ -62,8 +63,8 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
         estimated_minutes: parseInt(estimatedMinutes) || 30,
         priority,
         status,
-        completed_at: status === "completed" ? (initialData?.completed_at || new Date().toISOString()) : null,
-        actual_minutes: initialData?.actual_minutes || null,
+        completed_at: isFinished ? (initialData?.completed_at || new Date().toISOString()) : null,
+        actual_minutes: status === "skipped" ? null : (initialData?.actual_minutes || null),
       };
       if (isEditing && initialData) {
         await updateTask({ id: initialData.id, ...taskData });
@@ -144,6 +145,8 @@ export function TaskForm({ initialData, onSuccess, onCancel, defaultCategoryId }
             { value: "not_started", label: "Not Started" },
             { value: "in_progress", label: "In Progress" },
             { value: "completed", label: "Completed" },
+            { value: "partial", label: "Partially Completed" },
+            { value: "skipped", label: "Skipped" },
           ]}
         />
       </div>

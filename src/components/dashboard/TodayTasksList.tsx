@@ -1,17 +1,20 @@
 "use client";
-
-import { useTasks } from "@/hooks/useTasks";
+import { useState } from "react";
+import { useTasks, Task } from "@/hooks/useTasks";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { CheckCircle2, Circle, Clock } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { CompletionModal } from "@/components/ui/CompletionModal";
-import { useState } from "react";
-import { Task } from "@/hooks/useTasks";
+import { CompletionModal, CompletionStatus } from "@/components/ui/CompletionModal";
+import { rrulestr } from "rrule";
 
 export function TodayTasksList() {
-  const { tasks, isLoading, updateTask } = useTasks();
+  const { tasks, isLoading: tasksLoading, updateTask } = useTasks();
+  const { events, isLoading: eventsLoading } = useCalendarEvents();
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
+
+  const isLoading = tasksLoading || eventsLoading;
 
   const getLocalDateStr = (dateParam: Date | string | null) => {
     if (!dateParam) return null;
@@ -21,8 +24,37 @@ export function TodayTasksList() {
   };
   const todayStr = getLocalDateStr(new Date())!;
 
+  // Find task IDs scheduled for today in calendar_events
+  const todayTaskIds = new Set<string>();
+  events.forEach(event => {
+    if (!event.task_id) return;
+    
+    if (event.is_recurring && event.recurrence_rule) {
+      try {
+        const dtstart = new Date(event.start_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const ruleStr = `DTSTART:${dtstart}\nRRULE:${event.recurrence_rule}`;
+        const rule = rrulestr(ruleStr);
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        const occurrences = rule.between(todayStart, todayEnd, true);
+        if (occurrences.length > 0) {
+          todayTaskIds.add(event.task_id);
+        }
+      } catch (err) {
+        console.error("Error parsing rrule in TodayTasksList", err);
+      }
+    } else {
+      if (getLocalDateStr(event.start_time) === todayStr) {
+        todayTaskIds.add(event.task_id);
+      }
+    }
+  });
+
   const isTaskCompletedToday = (task: Task) => {
-    if (task.status === "completed") return true;
+    const isFinished = task.status === "completed" || task.status === "partial" || task.status === "skipped";
+    if (isFinished) return true;
     if (task.completed_at) {
       const completedDate = getLocalDateStr(task.completed_at);
       return completedDate === todayStr;
@@ -43,24 +75,29 @@ export function TodayTasksList() {
     }
   };
 
-  const handleCompleteTask = async ({ actualMinutes }: { actualMinutes: number }) => {
+  const handleCompleteTask = async ({ actualMinutes, status, completedAt }: { actualMinutes: number; status: CompletionStatus; completedAt: string }) => {
     if (completionTask) {
       await updateTask({
         id: completionTask.id,
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        actual_minutes: actualMinutes,
+        status: status,
+        completed_at: completedAt,
+        actual_minutes: status === "skipped" ? null : actualMinutes,
       });
       setCompletionTask(null);
     }
   };
 
   const todayTasks = tasks.filter(t => {
-    // Hide if permanently completed
-    if (t.status === "completed") return false;
-    // Hide if completed today (recurring event logic keeps status 'not_started')
+    // Hide if permanently finished
+    const isFinished = t.status === "completed" || t.status === "partial" || t.status === "skipped";
+    if (isFinished) return false;
+    // Hide if completed today (recurring event logic keeps status 'not_started' but sets completed_at to today)
     if (t.completed_at && getLocalDateStr(t.completed_at) === todayStr) return false;
-    return true;
+    
+    // Only show if scheduled for today or created today
+    const isScheduledToday = todayTaskIds.has(t.id);
+    const isCreatedToday = getLocalDateStr(t.created_at) === todayStr;
+    return isScheduledToday || isCreatedToday;
   }).slice(0, 5);
 
   if (isLoading) {
@@ -92,7 +129,7 @@ export function TodayTasksList() {
             <div 
               key={task.id} 
               className={`flex items-start gap-3 p-3 rounded-xl transition-all duration-200 border border-transparent ${
-                task.status === "completed" 
+                isTaskCompletedToday(task) 
                   ? "bg-white/[0.02]" 
                   : "bg-tempora-black hover:border-white/10"
               }`}
@@ -101,14 +138,14 @@ export function TodayTasksList() {
                 onClick={() => handleToggleStatus(task)}
                 className="mt-0.5 text-white/40 hover:text-tempora-cyan transition-colors"
               >
-                {task.status === "completed" ? (
+                {isTaskCompletedToday(task) ? (
                   <CheckCircle2 className="w-5 h-5 text-tempora-cyan" />
                 ) : (
                   <Circle className="w-5 h-5" />
                 )}
               </button>
               <div className="flex-1 min-w-0">
-                <div className={`font-medium truncate ${task.status === "completed" ? "text-white/40 line-through" : "text-white/90"}`}>
+                <div className={`font-medium truncate ${isTaskCompletedToday(task) ? "text-white/40 line-through" : "text-white/90"}`}>
                   {task.title}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 text-xs">

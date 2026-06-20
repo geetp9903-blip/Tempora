@@ -51,7 +51,7 @@ export function CompletionModal({
     selectedDateObj.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
     
     onSubmit({
-      actualMinutes: isNaN(parsedMinutes) ? estimatedMinutes : parsedMinutes,
+      actualMinutes: status === "skipped" ? 0 : (isNaN(parsedMinutes) ? estimatedMinutes : parsedMinutes),
       notes: notes.trim() || undefined,
       status,
       completedAt: selectedDateObj.toISOString()
@@ -86,15 +86,17 @@ export function CompletionModal({
           onChange={(e) => setCompletedDate(e.target.value)}
         />
 
-        <Input
-          label={status === "skipped" ? "Time Spent (minutes)" : "Actual Time (minutes)"}
-          type="number"
-          min="0"
-          required
-          value={actualMinutes}
-          onChange={(e) => setActualMinutes(e.target.value)}
-          autoFocus={status !== "skipped"}
-        />
+        {status !== "skipped" && (
+          <Input
+            label="Actual Time (minutes)"
+            type="number"
+            min="0"
+            required
+            value={actualMinutes}
+            onChange={(e) => setActualMinutes(e.target.value)}
+            autoFocus
+          />
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-white/80 ml-1">Notes (Optional)</label>

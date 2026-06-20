@@ -8,7 +8,7 @@ import { Edit2, Trash2, Clock, CheckCircle2, Circle } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { CompletionModal } from "@/components/ui/CompletionModal";
+import { CompletionModal, CompletionStatus } from "@/components/ui/CompletionModal";
 
 interface TaskTableProps {
   tasks: Task[];
@@ -22,7 +22,8 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
 
   const isTaskCompletedToday = (task: Task) => {
-    if (task.status === "completed") return true;
+    const isFinished = task.status === "completed" || task.status === "partial" || task.status === "skipped";
+    if (isFinished) return true;
     if (task.completed_at) {
       const completedDate = new Date(task.completed_at).toDateString();
       const todayDate = new Date().toDateString();
@@ -44,13 +45,13 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
     }
   };
 
-  const handleCompleteTask = async ({ actualMinutes }: { actualMinutes: number }) => {
+  const handleCompleteTask = async ({ actualMinutes, status, completedAt }: { actualMinutes: number; status: CompletionStatus; completedAt: string }) => {
     if (completionTask) {
       await updateTask({
         id: completionTask.id,
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        actual_minutes: actualMinutes,
+        status: status,
+        completed_at: completedAt,
+        actual_minutes: status === "skipped" ? null : actualMinutes,
       });
       setCompletionTask(null);
     }

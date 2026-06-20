@@ -7,6 +7,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import rrulePlugin from "@fullcalendar/rrule";
 import { useCalendarEvents, CalendarEvent } from "@/hooks/useCalendarEvents";
+import { useCategories } from "@/hooks/useCategories";
+import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -15,6 +17,7 @@ import { useEffect } from "react";
 
 export function CalendarView() {
   const calendarRef = useRef<FullCalendar>(null);
+  const { categories } = useCategories();
   
   // State for fetching current view range
   const [dateRange, setDateRange] = useState({ 
@@ -98,10 +101,14 @@ export function CalendarView() {
 
   // Format events for FullCalendar
   const calendarEvents = events.map(e => {
+    const catId = e.category_id || e.task?.category_id;
+    const categoryObj = categories.find(c => c.id === catId);
+    const catColor = categoryObj?.color || e.category?.color || "#7c3aed";
+
     const baseEvent = {
       id: e.id,
       title: e.title,
-      backgroundColor: e.category?.color || "#7c3aed",
+      backgroundColor: catColor,
       borderColor: "transparent",
       extendedProps: {
         status: e.status,
@@ -199,6 +206,7 @@ export function CalendarView() {
           right: isMobile ? "dayGridMonth,timeGridDay" : "dayGridMonth,timeGridWeek,timeGridDay"
         }}
         events={calendarEvents}
+        eventContent={renderEventContent}
         editable={true}
         selectable={true}
         selectMirror={true}
@@ -284,6 +292,36 @@ export function CalendarView() {
           defaultDate={completionEvent.occurrence_start || completionEvent.start_time}
           onSubmit={handleCompleteEvent}
         />
+      )}
+    </div>
+  );
+}
+
+function renderEventContent(eventInfo: any) {
+  const status = eventInfo.event.extendedProps.status;
+  
+  let StatusIcon = null;
+  let statusColorClass = "";
+  
+  if (status === "completed") {
+    StatusIcon = CheckCircle2;
+    statusColorClass = "text-emerald-400";
+  } else if (status === "partial") {
+    StatusIcon = AlertCircle;
+    statusColorClass = "text-amber-400";
+  } else if (status === "skipped") {
+    StatusIcon = XCircle;
+    statusColorClass = "text-rose-400";
+  }
+  
+  return (
+    <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
+      <div className="flex items-center gap-1 font-semibold truncate leading-tight">
+        {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
+        <span className="truncate">{eventInfo.event.title}</span>
+      </div>
+      {eventInfo.timeText && (
+        <span className="text-[10px] text-white/80 mt-0.5 leading-none">{eventInfo.timeText}</span>
       )}
     </div>
   );
