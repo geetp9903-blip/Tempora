@@ -13,7 +13,6 @@ import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CompletionModal } from "@/components/ui/CompletionModal";
-import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { useEffect } from "react";
 
 export function CalendarView() {

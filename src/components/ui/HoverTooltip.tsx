@@ -14,7 +14,7 @@ export function HoverTooltip({ children, content, className = "" }: HoverTooltip
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ x: 0, y: 0, isTop: false });
   const triggerRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export function HoverTooltip({ children, content, className = "" }: HoverTooltip
   }, []);
 
   const handleMouseEnter = () => {
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const isTop = window.innerHeight - rect.bottom < 200; // if less than 200px below, show on top
