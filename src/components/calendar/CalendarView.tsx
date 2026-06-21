@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CompletionModal } from "@/components/ui/CompletionModal";
+import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { useEffect } from "react";
 
 export function CalendarView() {
@@ -114,6 +115,9 @@ export function CalendarView() {
         status: e.status,
         taskId: e.task_id,
         categoryId: e.category_id,
+        notes: e.notes || e.task?.description || "",
+        priority: e.task?.priority || "",
+        estimated_minutes: e.task?.estimated_minutes || e.actual_minutes || 0,
       }
     };
 
@@ -299,6 +303,9 @@ export function CalendarView() {
 
 function renderEventContent(eventInfo: any) {
   const status = eventInfo.event.extendedProps.status;
+  const notes = eventInfo.event.extendedProps.notes;
+  const priority = eventInfo.event.extendedProps.priority;
+  const minutes = eventInfo.event.extendedProps.estimated_minutes;
   
   let StatusIcon = null;
   let statusColorClass = "";
@@ -315,14 +322,34 @@ function renderEventContent(eventInfo: any) {
   }
   
   return (
-    <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
-      <div className="flex items-center gap-1 font-semibold truncate leading-tight">
-        {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
-        <span className="truncate">{eventInfo.event.title}</span>
+    <HoverTooltip
+      className="!items-start !justify-start"
+      content={
+        <div className="flex flex-col gap-1 text-sm text-white text-left whitespace-normal">
+          <div className="font-semibold">{eventInfo.event.title}</div>
+          {notes ? (
+            <div className="text-white/70 mt-1 whitespace-pre-wrap text-xs">{notes}</div>
+          ) : (
+            <div className="text-white/40 italic mt-1 text-xs">No notes provided.</div>
+          )}
+          {(priority || minutes > 0) && (
+            <div className="flex items-center gap-3 mt-2 text-[10px] text-white/50 font-medium">
+              {priority && <span className="capitalize px-1.5 py-0.5 rounded bg-white/10">{priority} Priority</span>}
+              {minutes > 0 && <span>{minutes} min</span>}
+            </div>
+          )}
+        </div>
+      }
+    >
+      <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
+        <div className="flex items-center gap-1 font-semibold truncate leading-tight w-full">
+          {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
+          <span className="truncate flex-1">{eventInfo.event.title}</span>
+        </div>
+        {eventInfo.timeText && (
+          <span className="text-[10px] text-white/80 mt-0.5 leading-none w-full truncate">{eventInfo.timeText}</span>
+        )}
       </div>
-      {eventInfo.timeText && (
-        <span className="text-[10px] text-white/80 mt-0.5 leading-none">{eventInfo.timeText}</span>
-      )}
-    </div>
+    </HoverTooltip>
   );
 }

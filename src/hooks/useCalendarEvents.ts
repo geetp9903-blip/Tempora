@@ -107,6 +107,18 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
       stopLoading();
     },
     mutationFn: async ({ id, ...updates }: Partial<CalendarEvent> & { id: string }) => {
+      // First get current data to check if status or category actually changed
+      const { data: currentData, error: currentError } = await supabase
+        .from("calendar_events")
+        .select("*")
+        .eq("id", id)
+        .single();
+        
+      if (currentError) throw currentError;
+      
+      const statusChanged = updates.status !== undefined && updates.status !== currentData.status;
+      const categoryChanged = updates.category_id !== undefined && updates.category_id !== currentData.category_id;
+
       const { category, task, ...cleanUpdates } = updates;
       
       const { data, error } = await supabase
@@ -119,7 +131,7 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
       if (error) throw error;
 
       // Cross-sync: If category is being updated and there is a linked task, update the linked task's category
-      if (updates.category_id !== undefined && data.task_id) {
+      if (categoryChanged && data.task_id) {
         await supabase
           .from("tasks")
           .update({ category_id: updates.category_id })
@@ -127,57 +139,59 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
       }
 
       // Cross-sync: If status is being updated and there is a linked task
-      if (updates.status !== undefined && data.task_id) {
+      if (statusChanged && data.task_id) {
         if (updates.status === "not_started") {
-          // Check if this clone was for a recurring event
-          const { data: recurringEvents } = await supabase
-            .from("calendar_events")
-            .select("*")
-            .eq("task_id", data.task_id)
-            .eq("is_recurring", true);
-            
-          const recurringEvent = recurringEvents?.[0];
-          
-          if (recurringEvent) {
-            // It's a recurring event clone being marked incomplete!
-            // 1. Restore the recurrence rule on the original event (remove the EXDATE for this occurrence)
-            const start = new Date(data.start_time);
-            const exdateStr = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-            
-            if (recurringEvent.recurrence_rule) {
-              const rules = recurringEvent.recurrence_rule.split('\n');
-              const updatedRules = rules.map((rule: string) => {
-                if (rule.startsWith('EXDATE:')) {
-                  const dates = rule.substring(7).split(',');
-                  const filteredDates = dates.filter((d: string) => !d.startsWith(exdateStr.slice(0, 8)));
-                  return filteredDates.length > 0 ? `EXDATE:${filteredDates.join(',')}` : null;
-                }
-                return rule;
-              }).filter(Boolean);
+          // Check if this clone was for a recurring event. Only applies if the current event is NOT recurring itself.
+          if (!data.is_recurring) {
+            const { data: recurringEvents } = await supabase
+              .from("calendar_events")
+              .select("*")
+              .eq("task_id", data.task_id)
+              .eq("is_recurring", true);
               
+            const recurringEvent = recurringEvents?.[0];
+            
+            if (recurringEvent) {
+              // It's a recurring event clone being marked incomplete!
+              // 1. Restore the recurrence rule on the original event (remove the EXDATE for this occurrence)
+              const start = new Date(data.start_time);
+              const exdateStr = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+              
+              if (recurringEvent.recurrence_rule) {
+                const rules = recurringEvent.recurrence_rule.split('\n');
+                const updatedRules = rules.map((rule: string) => {
+                  if (rule.startsWith('EXDATE:')) {
+                    const dates = rule.substring(7).split(',');
+                    const filteredDates = dates.filter((d: string) => !d.startsWith(exdateStr.slice(0, 8)));
+                    return filteredDates.length > 0 ? `EXDATE:${filteredDates.join(',')}` : null;
+                  }
+                  return rule;
+                }).filter(Boolean);
+                
+                await supabase
+                  .from("calendar_events")
+                  .update({ recurrence_rule: updatedRules.join('\n') })
+                  .eq("id", recurringEvent.id);
+              }
+              
+              // 2. Delete this clone event
               await supabase
                 .from("calendar_events")
-                .update({ recurrence_rule: updatedRules.join('\n') })
-                .eq("id", recurringEvent.id);
+                .delete()
+                .eq("id", id);
+                
+              // 3. Update the linked task to clear completed_at and actual_minutes
+              await supabase
+                .from("tasks")
+                .update({
+                  status: "not_started",
+                  completed_at: null,
+                  actual_minutes: null
+                })
+                .eq("id", data.task_id);
+                
+              return { ...data, id, status: "not_started" } as CalendarEvent;
             }
-            
-            // 2. Delete this clone event
-            await supabase
-              .from("calendar_events")
-              .delete()
-              .eq("id", id);
-              
-            // 3. Update the linked task to clear completed_at and actual_minutes
-            await supabase
-              .from("tasks")
-              .update({
-                status: "not_started",
-                completed_at: null,
-                actual_minutes: null
-              })
-              .eq("id", data.task_id);
-              
-            return { ...data, id, status: "not_started" } as CalendarEvent;
           }
         }
 

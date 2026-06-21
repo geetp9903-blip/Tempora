@@ -90,6 +90,18 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
       stopLoading();
     },
     mutationFn: async ({ id, ...updates }: Partial<Task> & { id: string }) => {
+      // First, get the current data so we know if status actually changed
+      const { data: currentTask, error: currentError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", id)
+        .single();
+        
+      if (currentError) throw currentError;
+      
+      const statusChanged = updates.status !== undefined && updates.status !== currentTask.status;
+      const categoryChanged = updates.category_id !== undefined && updates.category_id !== currentTask.category_id;
+
       // Don't send joined 'category' back in updates
       const { category, ...cleanUpdates } = updates;
       
@@ -106,14 +118,14 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
       if (error) throw error;
 
       // Cross-sync: If category is being updated, update all linked calendar events
-      if (updates.category_id !== undefined) {
+      if (categoryChanged) {
         await supabase
           .from("calendar_events")
           .update({ category_id: updates.category_id })
           .eq("task_id", id);
       }
 
-      if (updates.status !== undefined) {
+      if (statusChanged) {
         const isFinished = updates.status === "completed" || updates.status === "partial" || updates.status === "skipped";
         
         // Find linked events
