@@ -2,18 +2,19 @@
 import { useState } from "react";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Info } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { CompletionModal, CompletionStatus } from "@/components/ui/CompletionModal";
+import { Modal } from "@/components/ui/Modal";
 import { rrulestr } from "rrule";
-import { HoverTooltip } from "@/components/ui/HoverTooltip";
 
 export function TodayTasksList() {
   const { tasks, isLoading: tasksLoading, updateTask } = useTasks();
   const { events, isLoading: eventsLoading } = useCalendarEvents();
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
+  const [infoTask, setInfoTask] = useState<Task | null>(null);
 
   const isLoading = tasksLoading || eventsLoading;
 
@@ -127,62 +128,53 @@ export function TodayTasksList() {
       ) : (
         <div className="flex flex-col gap-2 mt-2">
           {todayTasks.map(task => (
-            <HoverTooltip
-              key={task.id}
-              content={
-                <div className="flex flex-col gap-1 text-sm text-white">
-                  <div className="font-semibold">{task.title}</div>
-                  {task.description ? (
-                    <div className="text-white/70 mt-1 whitespace-pre-wrap text-xs">{task.description}</div>
-                  ) : (
-                    <div className="text-white/40 italic mt-1 text-xs">No notes provided.</div>
-                  )}
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-white/50 font-medium">
-                    <span className="capitalize px-1.5 py-0.5 rounded bg-white/10">{task.priority} Priority</span>
-                    {task.estimated_minutes > 0 && <span>{task.estimated_minutes} min</span>}
-                  </div>
-                </div>
-              }
+            <div 
+              key={task.id} 
+              className={`flex items-start gap-3 p-3 rounded-xl transition-all duration-200 border border-transparent w-full text-left ${
+                isTaskCompletedToday(task) 
+                  ? "bg-white/[0.02]" 
+                  : "bg-tempora-black hover:border-white/10"
+              }`}
             >
-              <div 
-                className={`flex items-start gap-3 p-3 rounded-xl transition-all duration-200 border border-transparent w-full text-left ${
-                  isTaskCompletedToday(task) 
-                    ? "bg-white/[0.02]" 
-                    : "bg-tempora-black hover:border-white/10"
-                }`}
+              <button 
+                onClick={() => handleToggleStatus(task)}
+                className="mt-0.5 text-white/40 hover:text-tempora-cyan transition-colors relative z-10"
               >
-                <button 
-                  onClick={() => handleToggleStatus(task)}
-                  className="mt-0.5 text-white/40 hover:text-tempora-cyan transition-colors relative z-10"
-                >
-                  {isTaskCompletedToday(task) ? (
-                    <CheckCircle2 className="w-5 h-5 text-tempora-cyan" />
-                  ) : (
-                    <Circle className="w-5 h-5" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className={`font-medium truncate ${isTaskCompletedToday(task) ? "text-white/40 line-through" : "text-white/90"}`}>
+                {isTaskCompletedToday(task) ? (
+                  <CheckCircle2 className="w-5 h-5 text-tempora-cyan" />
+                ) : (
+                  <Circle className="w-5 h-5" />
+                )}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className={`font-medium truncate pr-2 ${isTaskCompletedToday(task) ? "text-white/40 line-through" : "text-white/90"}`}>
                     {task.title}
                   </div>
-                  <div className="flex items-center gap-3 mt-1.5 text-xs">
-                    {task.category && (
-                      <div className="flex items-center gap-1.5">
-                        <div 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: task.category.color }}
-                        />
-                        <span className="text-white/60">{task.category.name}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-white/40">
-                      <Clock className="w-3 h-3" />
-                      {task.estimated_minutes}m
+                  <button 
+                    onClick={() => setInfoTask(task)}
+                    className="text-white/30 hover:text-white/80 transition-colors p-1"
+                  >
+                    <Info className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs">
+                  {task.category && (
+                    <div className="flex items-center gap-1.5">
+                      <div 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: task.category.color }}
+                      />
+                      <span className="text-white/60">{task.category.name}</span>
                     </div>
+                  )}
+                  <div className="flex items-center gap-1 text-white/40">
+                    <Clock className="w-3 h-3" />
+                    {task.estimated_minutes}m
                   </div>
                 </div>
               </div>
-            </HoverTooltip>
+            </div>
           ))}
         </div>
       )}
@@ -196,6 +188,46 @@ export function TodayTasksList() {
           onSubmit={handleCompleteTask}
         />
       )}
+
+      <Modal
+        isOpen={!!infoTask}
+        onClose={() => setInfoTask(null)}
+        title="Task Details"
+      >
+        {infoTask && (
+          <div className="flex flex-col gap-4 text-white">
+            <div>
+              <h4 className="text-lg font-semibold">{infoTask.title}</h4>
+              <div className="flex items-center gap-3 mt-2 text-sm text-white/60">
+                <span className="capitalize px-2 py-1 rounded bg-white/10">{infoTask.priority} Priority</span>
+                {infoTask.estimated_minutes > 0 && <span>{infoTask.estimated_minutes} min</span>}
+                {infoTask.category && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: infoTask.category.color }}
+                    />
+                    <span>{infoTask.category.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="h-px bg-white/10 w-full" />
+            
+            <div>
+              <h5 className="text-sm font-medium text-white/50 mb-2">Notes & Description</h5>
+              {infoTask.description ? (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 whitespace-pre-wrap text-sm text-white/80 leading-relaxed max-h-[300px] overflow-y-auto">
+                  {infoTask.description}
+                </div>
+              ) : (
+                <p className="text-white/40 italic text-sm p-2">No notes provided for this task.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

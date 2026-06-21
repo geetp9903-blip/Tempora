@@ -8,7 +8,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import rrulePlugin from "@fullcalendar/rrule";
 import { useCalendarEvents, CalendarEvent } from "@/hooks/useCalendarEvents";
 import { useCategories } from "@/hooks/useCategories";
-import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle, Info } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -141,6 +141,60 @@ export function CalendarView() {
       end: e.end_time,
     };
   });
+
+  const [infoEvent, setInfoEvent] = useState<any | null>(null);
+
+  const renderEventContent = (eventInfo: any) => {
+    const status = eventInfo.event.extendedProps.status;
+    
+    let StatusIcon = null;
+    let statusColorClass = "";
+    
+    if (status === "completed") {
+      StatusIcon = CheckCircle2;
+      statusColorClass = "text-emerald-400";
+    } else if (status === "partial") {
+      StatusIcon = AlertCircle;
+      statusColorClass = "text-amber-400";
+    } else if (status === "skipped") {
+      StatusIcon = XCircle;
+      statusColorClass = "text-rose-400";
+    }
+    
+    return (
+      <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
+        <div className="flex items-center justify-between font-semibold leading-tight w-full">
+          <div className="flex items-center gap-1 truncate pr-1">
+            {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
+            <span className="truncate">{eventInfo.event.title}</span>
+          </div>
+          <button 
+            onPointerDown={(e) => {
+              e.stopPropagation(); // prevent drag
+              e.preventDefault(); // prevent click
+              setInfoEvent({
+                title: eventInfo.event.title,
+                notes: eventInfo.event.extendedProps.notes,
+                priority: eventInfo.event.extendedProps.priority,
+                estimated_minutes: eventInfo.event.extendedProps.estimated_minutes,
+                category_id: eventInfo.event.extendedProps.categoryId,
+              });
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            className="text-white/40 hover:text-white transition-colors shrink-0 p-0.5 rounded bg-black/20 hover:bg-black/40"
+          >
+            <Info className="w-3 h-3" />
+          </button>
+        </div>
+        {eventInfo.timeText && (
+          <span className="text-[10px] text-white/80 mt-0.5 leading-none w-full truncate">{eventInfo.timeText}</span>
+        )}
+      </div>
+    );
+  };
 
   const handleDelete = async () => {
     if (deleteConfirmId) {
@@ -297,59 +351,48 @@ export function CalendarView() {
           onSubmit={handleCompleteEvent}
         />
       )}
+
+      <Modal
+        isOpen={!!infoEvent}
+        onClose={() => setInfoEvent(null)}
+        title="Event Details"
+      >
+        {infoEvent && (
+          <div className="flex flex-col gap-4 text-white">
+            <div>
+              <h4 className="text-lg font-semibold">{infoEvent.title}</h4>
+              <div className="flex items-center gap-3 mt-2 text-sm text-white/60">
+                {infoEvent.priority && <span className="capitalize px-2 py-1 rounded bg-white/10">{infoEvent.priority} Priority</span>}
+                {infoEvent.estimated_minutes > 0 && <span>{infoEvent.estimated_minutes} min</span>}
+                {infoEvent.category_id && categories.find(c => c.id === infoEvent.category_id) && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: categories.find(c => c.id === infoEvent.category_id)!.color }}
+                    />
+                    <span>{categories.find(c => c.id === infoEvent.category_id)!.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="h-px bg-white/10 w-full" />
+            
+            <div>
+              <h5 className="text-sm font-medium text-white/50 mb-2">Notes & Description</h5>
+              {infoEvent.notes ? (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 whitespace-pre-wrap text-sm text-white/80 leading-relaxed max-h-[300px] overflow-y-auto">
+                  {infoEvent.notes}
+                </div>
+              ) : (
+                <p className="text-white/40 italic text-sm p-2">No notes provided for this event.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
 
-function renderEventContent(eventInfo: any) {
-  const status = eventInfo.event.extendedProps.status;
-  const notes = eventInfo.event.extendedProps.notes;
-  const priority = eventInfo.event.extendedProps.priority;
-  const minutes = eventInfo.event.extendedProps.estimated_minutes;
-  
-  let StatusIcon = null;
-  let statusColorClass = "";
-  
-  if (status === "completed") {
-    StatusIcon = CheckCircle2;
-    statusColorClass = "text-emerald-400";
-  } else if (status === "partial") {
-    StatusIcon = AlertCircle;
-    statusColorClass = "text-amber-400";
-  } else if (status === "skipped") {
-    StatusIcon = XCircle;
-    statusColorClass = "text-rose-400";
-  }
-  
-  return (
-    <HoverTooltip
-      className="!items-start !justify-start"
-      content={
-        <div className="flex flex-col gap-1 text-sm text-white text-left whitespace-normal">
-          <div className="font-semibold">{eventInfo.event.title}</div>
-          {notes ? (
-            <div className="text-white/70 mt-1 whitespace-pre-wrap text-xs">{notes}</div>
-          ) : (
-            <div className="text-white/40 italic mt-1 text-xs">No notes provided.</div>
-          )}
-          {(priority || minutes > 0) && (
-            <div className="flex items-center gap-3 mt-2 text-[10px] text-white/50 font-medium">
-              {priority && <span className="capitalize px-1.5 py-0.5 rounded bg-white/10">{priority} Priority</span>}
-              {minutes > 0 && <span>{minutes} min</span>}
-            </div>
-          )}
-        </div>
-      }
-    >
-      <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
-        <div className="flex items-center gap-1 font-semibold truncate leading-tight w-full">
-          {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
-          <span className="truncate flex-1">{eventInfo.event.title}</span>
-        </div>
-        {eventInfo.timeText && (
-          <span className="text-[10px] text-white/80 mt-0.5 leading-none w-full truncate">{eventInfo.timeText}</span>
-        )}
-      </div>
-    </HoverTooltip>
-  );
-}
+
