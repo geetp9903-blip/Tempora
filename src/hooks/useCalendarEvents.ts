@@ -81,10 +81,19 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
 
       // Sync with task if completed
       if (newEvent.status && newEvent.status !== "not_started" && newEvent.task_id) {
+        // Check if there is a recurring calendar event linked to this task
+        const { data: recurringEvents } = await supabase
+          .from("calendar_events")
+          .select("id")
+          .eq("task_id", newEvent.task_id)
+          .eq("is_recurring", true);
+
+        const isRecurringTask = recurringEvents && recurringEvents.length > 0;
+
         await supabase
           .from("tasks")
           .update({
-            status: newEvent.status,
+            status: isRecurringTask ? "not_started" : newEvent.status,
             completed_at: newEvent.completed_at || new Date().toISOString(),
             actual_minutes: newEvent.actual_minutes
           })
@@ -195,11 +204,20 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
           }
         }
 
-        // Standard non-recurring update behavior
+        // Check if there is a recurring calendar event linked to this task
+        const { data: recurringEvents } = await supabase
+          .from("calendar_events")
+          .select("id")
+          .eq("task_id", data.task_id)
+          .eq("is_recurring", true);
+
+        const isRecurringTask = recurringEvents && recurringEvents.length > 0;
+
+        // Standard update behavior (reverts status to not_started if recurring)
         await supabase
           .from("tasks")
           .update({
-            status: updates.status,
+            status: (isRecurringTask && updates.status !== "not_started") ? "not_started" : updates.status,
             completed_at: updates.status !== "not_started" ? (updates.completed_at || new Date().toISOString()) : null,
             actual_minutes: updates.status !== "not_started" ? updates.actual_minutes : null
           })

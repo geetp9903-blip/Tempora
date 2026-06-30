@@ -90,11 +90,13 @@ export function TodayTasksList() {
   };
 
   const todayTasks = tasks.filter(t => {
-    // Hide if permanently finished
     const isFinished = t.status === "completed" || t.status === "partial" || t.status === "skipped";
-    if (isFinished) return false;
-    // Hide if completed today (recurring event logic keeps status 'not_started' but sets completed_at to today)
-    if (t.completed_at && getLocalDateStr(t.completed_at) === todayStr) return false;
+    
+    // Hide if permanently finished on a previous day
+    if (isFinished) {
+      const completedDate = getLocalDateStr(t.completed_at);
+      if (completedDate !== todayStr) return false;
+    }
     
     // Only show if scheduled for today or created today
     const isScheduledToday = todayTaskIds.has(t.id);
