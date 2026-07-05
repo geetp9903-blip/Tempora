@@ -13,7 +13,9 @@ import { Modal } from "@/components/ui/Modal";
 import { EventForm } from "./EventForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CompletionModal } from "@/components/ui/CompletionModal";
+import { RecurringDeleteModal, RecurringDeleteMode } from "@/components/ui/RecurringDeleteModal";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export function CalendarView() {
   const calendarRef = useRef<FullCalendar>(null);
@@ -25,7 +27,7 @@ export function CalendarView() {
     end: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString() 
   });
   
-  const { events, createEvent, updateEvent, deleteEvent } = useCalendarEvents(dateRange);
+  const { events, createEvent, updateEvent, deleteEvent, deleteRecurringEvent, isDeletingRecurring } = useCalendarEvents(dateRange);
 
   const [isMobile, setIsMobile] = useState(false);
   
@@ -42,6 +44,7 @@ export function CalendarView() {
   const [editingEvent, setEditingEvent] = useState<Partial<CalendarEvent> | undefined>(undefined);
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [recurringDeleteEvent, setRecurringDeleteEvent] = useState<{ event: CalendarEvent; occurrenceDate: string } | null>(null);
   const [completionEvent, setCompletionEvent] = useState<CalendarEvent | null>(null);
 
   const getEventDuration = (event: Partial<CalendarEvent>) => {
@@ -203,6 +206,33 @@ export function CalendarView() {
     }
   };
 
+  const handleRecurringDelete = async (mode: RecurringDeleteMode) => {
+    if (!recurringDeleteEvent) return;
+    try {
+      await deleteRecurringEvent({
+        eventId: recurringDeleteEvent.event.id,
+        occurrenceDate: recurringDeleteEvent.occurrenceDate,
+        mode,
+      });
+      toast.success("Recurring event updated successfully");
+      setRecurringDeleteEvent(null);
+      setIsFormOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete recurring event");
+    }
+  };
+
+  const handleDeleteClick = (eventId: string) => {
+    const event = events.find(e => e.id === eventId);
+    if (event?.is_recurring && event.recurrence_rule) {
+      // Use the occurrence date from the editing event, or fall back to the event start_time
+      const occDate = editingEvent?.occurrence_start || event.start_time;
+      setRecurringDeleteEvent({ event, occurrenceDate: occDate });
+    } else {
+      setDeleteConfirmId(eventId);
+    }
+  };
+
   const handleCompleteEvent = async ({ actualMinutes, notes, status, completedAt }: { actualMinutes: number, notes?: string, status: "completed" | "partial" | "skipped", completedAt: string }) => {
     if (completionEvent) {
       const startStr = completionEvent.occurrence_start || completionEvent.start_time;
@@ -320,7 +350,7 @@ export function CalendarView() {
 
               <button
                 type="button"
-                onClick={() => setDeleteConfirmId(editingEvent.id!)}
+                onClick={() => handleDeleteClick(editingEvent.id!)}
                 className="text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
               >
                 Delete Event
@@ -339,6 +369,19 @@ export function CalendarView() {
         confirmText="Delete"
         isDestructive
       />
+
+      {recurringDeleteEvent && (
+        <RecurringDeleteModal
+          isOpen={true}
+          onClose={() => setRecurringDeleteEvent(null)}
+          onConfirm={handleRecurringDelete}
+          occurrenceDate={recurringDeleteEvent.occurrenceDate}
+          recurrenceRule={recurringDeleteEvent.event.recurrence_rule || ""}
+          eventTitle={recurringDeleteEvent.event.title}
+          hasLinkedTask={!!recurringDeleteEvent.event.task_id}
+          isLoading={isDeletingRecurring}
+        />
+      )}
 
       {completionEvent && (
         <CompletionModal

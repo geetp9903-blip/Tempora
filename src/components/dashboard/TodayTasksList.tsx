@@ -98,10 +98,8 @@ export function TodayTasksList() {
       if (completedDate !== todayStr) return false;
     }
     
-    // Only show if scheduled for today or created today
-    const isScheduledToday = todayTaskIds.has(t.id);
-    const isCreatedToday = getLocalDateStr(t.created_at) === todayStr;
-    return isScheduledToday || isCreatedToday;
+    // Only show if explicitly scheduled for today via a calendar event
+    return todayTaskIds.has(t.id);
   }).slice(0, 5);
 
   if (isLoading) {

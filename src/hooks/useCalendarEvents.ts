@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Category } from "./useCategories";
 import { Task } from "./useTasks";
 import { usePageLoader } from "@/providers/PageLoaderProvider";
+import type { RecurringDeleteMode } from "@/components/ui/RecurringDeleteModal";
 
 export type CalendarEvent = {
   id: string;
@@ -249,6 +250,161 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
     },
   });
 
+  const deleteRecurringMutation = useMutation({
+    onMutate: () => {
+      startLoading();
+    },
+    onSettled: () => {
+      stopLoading();
+    },
+    mutationFn: async ({
+      eventId,
+      occurrenceDate,
+      mode,
+    }: {
+      eventId: string;
+      occurrenceDate: string;
+      mode: RecurringDeleteMode;
+    }) => {
+      // Fetch the parent recurring event
+      const { data: parentEvent, error: fetchErr } = await supabase
+        .from("calendar_events")
+        .select("*")
+        .eq("id", eventId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const currentRule = parentEvent.recurrence_rule || "";
+
+      if (mode.type === "this_instance") {
+        // Add a single EXDATE for this occurrence
+        const exdateStr = new Date(occurrenceDate).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+        const newRule = currentRule ? `${currentRule}\nEXDATE:${exdateStr}` : `EXDATE:${exdateStr}`;
+        await supabase
+          .from("calendar_events")
+          .update({ recurrence_rule: newRule })
+          .eq("id", eventId);
+      } else if (mode.type === "all_of_day") {
+        // Generate all occurrences of the specified weekday between fromDate and toDate
+        // and add them as EXDATEs
+        const { rrulestr } = await import("rrule");
+        const dtstart = new Date(parentEvent.start_time).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+        
+        // Extract just the RRULE line (not EXDATE lines)
+        const ruleLines = currentRule.split("\n");
+        const rruleLine = ruleLines.find((l: string) => l.startsWith("FREQ=") || l.startsWith("RRULE:")) || ruleLines[0];
+        const existingExdates = ruleLines.filter((l: string) => l.startsWith("EXDATE:"));
+        
+        const ruleStr = `DTSTART:${dtstart}\nRRULE:${rruleLine}`;
+        const rule = rrulestr(ruleStr);
+
+        const rangeStart = new Date(mode.fromDate + "T00:00:00");
+        const rangeEnd = new Date(mode.toDate + "T23:59:59");
+        const occurrences = rule.between(rangeStart, rangeEnd, true);
+
+        // Map RRule weekday index to our RRULE BYDAY codes
+        const jsWeekdayMap: Record<string, number> = {
+          SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
+        };
+        const targetJsDay = jsWeekdayMap[mode.weekday];
+
+        const newExdates: string[] = [];
+        for (const occ of occurrences) {
+          if (occ.getDay() === targetJsDay) {
+            // Build the exdate using the parent event's original time but this occurrence's date
+            const occStart = new Date(parentEvent.start_time);
+            occStart.setFullYear(occ.getFullYear(), occ.getMonth(), occ.getDate());
+            const exStr = occStart.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+            newExdates.push(exStr);
+          }
+        }
+
+        if (newExdates.length > 0) {
+          const exdateLine = `EXDATE:${newExdates.join(",")}`;
+          const allParts = [rruleLine, ...existingExdates, exdateLine];
+          await supabase
+            .from("calendar_events")
+            .update({ recurrence_rule: allParts.join("\n") })
+            .eq("id", eventId);
+        }
+      } else if (mode.type === "all_forward") {
+        // Truncate the recurrence: set UNTIL to the day before the occurrence
+        const occDate = new Date(occurrenceDate);
+        const dayBefore = new Date(occDate);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        dayBefore.setHours(23, 59, 59, 0);
+        const untilStr = dayBefore.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+        // Check if this is the first occurrence — if so, delete the entire event
+        const { rrulestr } = await import("rrule");
+        const dtstart = new Date(parentEvent.start_time).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+        const ruleLines = currentRule.split("\n");
+        const rruleLine = ruleLines.find((l: string) => l.startsWith("FREQ=") || l.startsWith("RRULE:")) || ruleLines[0];
+        const ruleStr = `DTSTART:${dtstart}\nRRULE:${rruleLine}`;
+        const rule = rrulestr(ruleStr);
+
+        const firstOcc = rule.after(new Date(0), true);
+        if (firstOcc) {
+          const firstOccDateStr = firstOcc.toISOString().split("T")[0];
+          const occDateStr = occDate.toISOString().split("T")[0];
+          if (firstOccDateStr >= occDateStr) {
+            // The selected occurrence is at or before the first one — delete entirely
+            await supabase.from("calendar_events").delete().eq("id", eventId);
+            return eventId;
+          }
+        }
+
+        // Update RRULE to have UNTIL = day before
+        const existingExdates = ruleLines.filter((l: string) => l.startsWith("EXDATE:"));
+        // Strip any existing UNTIL or COUNT from the rule
+        const ruleSegments = rruleLine.split(";").filter(
+          (seg: string) => !seg.startsWith("UNTIL=") && !seg.startsWith("COUNT=")
+        );
+        ruleSegments.push(`UNTIL=${untilStr}`);
+        const newRuleLine = ruleSegments.join(";");
+        
+        // Keep existing EXDATEs that are before the new UNTIL
+        const filteredExdates = existingExdates.filter((exLine: string) => {
+          const dates = exLine.substring(7).split(",");
+          const validDates = dates.filter((d: string) => {
+            const exDate = new Date(d.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, "$1-$2-$3T$4:$5:$6Z"));
+            return exDate <= dayBefore;
+          });
+          return validDates.length > 0;
+        });
+
+        const allParts = [newRuleLine, ...filteredExdates];
+        await supabase
+          .from("calendar_events")
+          .update({ recurrence_rule: allParts.join("\n") })
+          .eq("id", eventId);
+      } else if (mode.type === "all_completely") {
+        // Delete the parent recurring event
+        await supabase.from("calendar_events").delete().eq("id", eventId);
+
+        // Delete all completed clone events linked to the same task
+        if (parentEvent.task_id) {
+          await supabase
+            .from("calendar_events")
+            .delete()
+            .eq("task_id", parentEvent.task_id)
+            .eq("is_recurring", false);
+
+          // Optionally delete the linked task
+          if (mode.deleteTask) {
+            await supabase.from("tasks").delete().eq("id", parentEvent.task_id);
+          }
+        }
+      }
+
+      return eventId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   return {
     events: query.data ?? [],
     isLoading: query.isLoading,
@@ -260,5 +416,7 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
     isUpdating: updateMutation.isPending,
     deleteEvent: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
+    deleteRecurringEvent: deleteRecurringMutation.mutateAsync,
+    isDeletingRecurring: deleteRecurringMutation.isPending,
   };
 }

@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CompletionModal, CompletionStatus } from "@/components/ui/CompletionModal";
+import { RecurringDeleteModal, RecurringDeleteMode } from "@/components/ui/RecurringDeleteModal";
+import { toast } from "sonner";
 
 interface TaskTableProps {
   tasks: Task[];
@@ -17,8 +19,15 @@ interface TaskTableProps {
 }
 
 export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
-  const { updateTask, deleteTask } = useTasks();
+  const { updateTask, deleteTask, checkTaskRecurrence, deleteRecurringTask, isDeletingRecurring } = useTasks();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [recurringDeleteInfo, setRecurringDeleteInfo] = useState<{
+    taskId: string;
+    eventId: string;
+    recurrenceRule: string;
+    eventTitle: string;
+    startTime: string;
+  } | null>(null);
   const [completionTask, setCompletionTask] = useState<Task | null>(null);
 
   const isTaskCompletedToday = (task: Task) => {
@@ -61,6 +70,37 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
     if (deleteConfirmId) {
       await deleteTask(deleteConfirmId);
       setDeleteConfirmId(null);
+    }
+  };
+
+  const handleDeleteClick = async (task: Task) => {
+    const recurringEvent = await checkTaskRecurrence(task.id);
+    if (recurringEvent) {
+      setRecurringDeleteInfo({
+        taskId: task.id,
+        eventId: recurringEvent.id,
+        recurrenceRule: recurringEvent.recurrence_rule || "",
+        eventTitle: task.title,
+        startTime: recurringEvent.start_time,
+      });
+    } else {
+      setDeleteConfirmId(task.id);
+    }
+  };
+
+  const handleRecurringDelete = async (mode: RecurringDeleteMode) => {
+    if (!recurringDeleteInfo) return;
+    try {
+      await deleteRecurringTask({
+        taskId: recurringDeleteInfo.taskId,
+        eventId: recurringDeleteInfo.eventId,
+        occurrenceDate: recurringDeleteInfo.startTime,
+        mode,
+      });
+      toast.success("Recurring task updated successfully");
+      setRecurringDeleteInfo(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete recurring task");
     }
   };
 
@@ -169,7 +209,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
                       variant="ghost" 
                       size="sm" 
                       className="h-8 w-8 p-0 text-white/40 hover:text-red-400"
-                      onClick={() => setDeleteConfirmId(task.id)}
+                      onClick={() => handleDeleteClick(task)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -246,7 +286,7 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
                     variant="ghost" 
                     size="sm" 
                     className="h-8 w-8 p-0 text-white/40 hover:text-red-400"
-                    onClick={() => setDeleteConfirmId(task.id)}
+                    onClick={() => handleDeleteClick(task)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -274,6 +314,19 @@ export function TaskTable({ tasks, isLoading, onEditTask }: TaskTableProps) {
           title={`Complete: ${completionTask.title}`}
           estimatedMinutes={completionTask.estimated_minutes}
           onSubmit={handleCompleteTask}
+        />
+      )}
+
+      {recurringDeleteInfo && (
+        <RecurringDeleteModal
+          isOpen={true}
+          onClose={() => setRecurringDeleteInfo(null)}
+          onConfirm={handleRecurringDelete}
+          occurrenceDate={recurringDeleteInfo.startTime}
+          recurrenceRule={recurringDeleteInfo.recurrenceRule}
+          eventTitle={recurringDeleteInfo.eventTitle}
+          hasLinkedTask={true}
+          isLoading={isDeletingRecurring}
         />
       )}
     </div>
