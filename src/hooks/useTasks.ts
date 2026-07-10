@@ -66,9 +66,17 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not authenticated");
 
+      const nowStr = new Date().toISOString();
+      const isFinished = newTask.status === "completed" || newTask.status === "partial" || newTask.status === "skipped";
+
       const { data, error } = await supabase
         .from("tasks")
-        .insert([{ ...newTask, user_id: userData.user.id }])
+        .insert([{ 
+          ...newTask, 
+          user_id: userData.user.id,
+          created_at: nowStr,
+          completed_at: isFinished ? nowStr : null
+        }])
         .select(`
           *,
           category:categories(*)
@@ -105,6 +113,13 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
 
       // Don't send joined 'category' back in updates
       const { category, ...cleanUpdates } = updates;
+
+      if (statusChanged) {
+        const isFinished = updates.status === "completed" || updates.status === "partial" || updates.status === "skipped";
+        if (isFinished) {
+          cleanUpdates.completed_at = currentTask.created_at;
+        }
+      }
       
       const { data, error } = await supabase
         .from("tasks")
@@ -138,23 +153,23 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
         const recurringEvent = linkedEvents?.find(e => e.is_recurring);
 
         if (recurringEvent && isFinished) {
-          // It's a recurring event, so don't complete the task permanently!
-          // We revert the task's status to 'not_started' but keep 'completed_at' to hide it for today
-          await supabase
-            .from("tasks")
-            .update({
-              status: "not_started",
-              completed_at: updates.completed_at || new Date().toISOString(),
-              actual_minutes: updates.actual_minutes || null
-            })
-            .eq("id", id);
-            
           // Get today's occurrence start/end times based on original event hours/minutes
           const today = new Date();
           const start = new Date(recurringEvent.start_time);
           start.setFullYear(today.getFullYear(), today.getMonth(), today.getDate());
           const end = new Date(recurringEvent.end_time);
           end.setFullYear(today.getFullYear(), today.getMonth(), today.getDate());
+
+          // It's a recurring event, so don't complete the task permanently!
+          // We revert the task's status to 'not_started' but keep 'completed_at' to hide it for today
+          await supabase
+            .from("tasks")
+            .update({
+              status: "not_started",
+              completed_at: start.toISOString(),
+              actual_minutes: updates.actual_minutes || null
+            })
+            .eq("id", id);
 
           // Now create the exception in the calendar for today's occurrence start time
           const exdateStr = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -179,7 +194,7 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
               is_recurring: false,
               recurrence_rule: null,
               status: updates.status,
-              completed_at: updates.completed_at || new Date().toISOString(),
+              completed_at: start.toISOString(),
               actual_minutes: updates.actual_minutes || recurringEvent.actual_minutes
             }]);
             
@@ -229,7 +244,7 @@ export function useTasks(filters?: { category_id?: string; status?: string; sear
               .from("calendar_events")
               .update({ 
                 status: updates.status,
-                completed_at: isFinished ? (updates.completed_at || new Date().toISOString()) : null,
+                completed_at: isFinished ? nonRecurringEvent.start_time : null,
                 actual_minutes: isFinished ? updates.actual_minutes : null
               })
               .eq("id", nonRecurringEvent.id);

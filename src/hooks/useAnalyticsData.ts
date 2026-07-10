@@ -188,7 +188,7 @@ export function useAnalyticsData(dateRangeStr: string) {
 
       // Actuals & Completion
       if (task.status && task.status !== "not_started" && task.status !== "in_progress" && task.completed_at) {
-        const completedDate = new Date(task.completed_at);
+        const completedDate = new Date(task.created_at);
         if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
           const groupKey = getGroupKey(completedDate);
           const isEventCompleted = completedEventTaskIds.has(task.id);
@@ -265,7 +265,7 @@ export function useAnalyticsData(dateRangeStr: string) {
       }
 
       if (event.status && event.status !== "not_started" && event.status !== "in_progress" && event.completed_at) {
-        const completedDate = new Date(event.completed_at);
+        const completedDate = new Date(event.start_time);
         if (completedDate >= rangeStartDate && completedDate <= rangeEndDate) {
           const groupKey = getGroupKey(completedDate);
           if (groupKey && trendMap.has(groupKey)) {

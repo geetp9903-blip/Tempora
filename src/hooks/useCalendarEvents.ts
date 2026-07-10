@@ -80,6 +80,10 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
 
       if (error) throw error;
 
+      if (newEvent.status && newEvent.status !== "not_started" && newEvent.status !== "in_progress") {
+        newEvent.completed_at = newEvent.start_time;
+      }
+
       // Sync with task if completed
       if (newEvent.status && newEvent.status !== "not_started" && newEvent.task_id) {
         // Check if there is a recurring calendar event linked to this task
@@ -91,11 +95,18 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
 
         const isRecurringTask = recurringEvents && recurringEvents.length > 0;
 
+        // Get the task's created_at to use as completed_at for the task
+        const { data: linkedTask } = await supabase
+          .from("tasks")
+          .select("created_at")
+          .eq("id", newEvent.task_id)
+          .single();
+
         await supabase
           .from("tasks")
           .update({
             status: isRecurringTask ? "not_started" : newEvent.status,
-            completed_at: newEvent.completed_at || new Date().toISOString(),
+            completed_at: linkedTask?.created_at || newEvent.start_time,
             actual_minutes: newEvent.actual_minutes
           })
           .eq("id", newEvent.task_id);
@@ -130,6 +141,13 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
       const categoryChanged = updates.category_id !== undefined && updates.category_id !== currentData.category_id;
 
       const { category, task, ...cleanUpdates } = updates;
+
+      if (statusChanged) {
+        const isFinished = updates.status === "completed" || updates.status === "partial" || updates.status === "skipped";
+        if (isFinished) {
+          cleanUpdates.completed_at = currentData.start_time;
+        }
+      }
       
       const { data, error } = await supabase
         .from("calendar_events")
@@ -214,12 +232,19 @@ export function useCalendarEvents(dateRange?: { start: string; end: string }) {
 
         const isRecurringTask = recurringEvents && recurringEvents.length > 0;
 
+        // Get the task's created_at to use as completed_at for the task
+        const { data: linkedTask } = await supabase
+          .from("tasks")
+          .select("created_at")
+          .eq("id", data.task_id)
+          .single();
+
         // Standard update behavior (reverts status to not_started if recurring)
         await supabase
           .from("tasks")
           .update({
             status: (isRecurringTask && updates.status !== "not_started") ? "not_started" : updates.status,
-            completed_at: updates.status !== "not_started" ? (updates.completed_at || new Date().toISOString()) : null,
+            completed_at: updates.status !== "not_started" ? (linkedTask?.created_at || currentData.start_time) : null,
             actual_minutes: updates.status !== "not_started" ? updates.actual_minutes : null
           })
           .eq("id", data.task_id);

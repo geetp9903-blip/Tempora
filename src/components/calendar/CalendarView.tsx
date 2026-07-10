@@ -167,7 +167,11 @@ export function CalendarView() {
       <div className="flex flex-col h-full w-full p-1 overflow-hidden text-xs text-white">
         <div className="flex items-center justify-between font-semibold leading-tight w-full">
           <div className="flex items-center gap-1 truncate pr-1">
-            {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColorClass}`} />}
+            {StatusIcon && (
+              <div className="bg-black/30 rounded-md p-0.5 shrink-0 flex items-center justify-center">
+                <StatusIcon className={`w-3.5 h-3.5 ${statusColorClass}`} />
+              </div>
+            )}
             <span className="truncate">{eventInfo.event.title}</span>
           </div>
           <button 

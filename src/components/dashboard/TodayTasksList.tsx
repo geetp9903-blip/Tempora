@@ -56,10 +56,20 @@ export function TodayTasksList() {
 
   const isTaskCompletedToday = (task: Task) => {
     const isFinished = task.status === "completed" || task.status === "partial" || task.status === "skipped";
-    if (isFinished) return true;
-    if (task.completed_at) {
-      const completedDate = getLocalDateStr(task.completed_at);
-      return completedDate === todayStr;
+    
+    // If it's finished, first check if today's calendar event for this task is finished.
+    // Tasks in TodayTasksList are guaranteed to be in todayTaskIds, which implies an event exists.
+    const todayEvent = events.find(e => e.task_id === task.id && getLocalDateStr(e.start_time) === todayStr);
+    if (todayEvent) {
+      return todayEvent.status === "completed" || todayEvent.status === "partial" || todayEvent.status === "skipped";
+    }
+
+    if (isFinished) {
+      if (task.completed_at) {
+        const completedDate = getLocalDateStr(task.completed_at);
+        return completedDate === todayStr;
+      }
+      return true;
     }
     return false;
   };
@@ -92,10 +102,9 @@ export function TodayTasksList() {
   const todayTasks = tasks.filter(t => {
     const isFinished = t.status === "completed" || t.status === "partial" || t.status === "skipped";
     
-    // Hide if permanently finished on a previous day
+    // Hide if permanently finished on a previous day or not completed today
     if (isFinished) {
-      const completedDate = getLocalDateStr(t.completed_at);
-      if (completedDate !== todayStr) return false;
+      if (!isTaskCompletedToday(t)) return false;
     }
     
     // Only show if explicitly scheduled for today via a calendar event

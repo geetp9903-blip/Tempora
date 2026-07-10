@@ -11,8 +11,8 @@ export function ProductivityTrendChart({ dateRange = "7" }: { dateRange?: string
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 h-[350px] sm:h-[400px] flex flex-col w-full">
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-white">Completion Trend</h3>
-        <p className="text-sm text-white/60">Tasks and events finished per day.</p>
+        <h3 className="text-lg font-bold text-white">Completion Trend (Minutes)</h3>
+        <p className="text-sm text-white/60">Minutes of tasks and events finished per day.</p>
       </div>
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -23,8 +23,8 @@ export function ProductivityTrendChart({ dateRange = "7" }: { dateRange?: string
             <Tooltip content={<AnalyticsTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)' }} />
             <Line 
               type="monotone" 
-              dataKey="completedCount" 
-              name="Items Completed" 
+              dataKey="completedMinutes" 
+              name="Minutes Completed" 
               stroke="#06b6d4" 
               strokeWidth={3} 
               dot={{ r: 4, fill: '#0e0e1a', strokeWidth: 2 }} 
